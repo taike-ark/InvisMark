@@ -32,8 +32,10 @@ jobs:
       - name: 端到端 demo
         run: python -m invismark demo --out demo
 
-      - name: 鲁棒性矩阵（小图快速版，守住基线）
-        run: python scripts/bench_matrix.py --width 800 --height 600 --base 800
+      - name: 鲁棒性矩阵（快速基线，仅合成纹理图）
+        # 类自然照片在 800px 基准下 k（每比特块数）只有 14，平滑图信噪比不足属已知限制，
+        # 快速基线只守合成纹理图；完整矩阵请按 README 用 2400px 跑。
+        run: python scripts/bench_matrix.py --images synth --width 800 --height 600 --base 800
 
   docker:
     name: docker build

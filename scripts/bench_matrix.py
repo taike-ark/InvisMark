@@ -129,10 +129,22 @@ def main() -> int:
     ap.add_argument("--alpha", type=float, default=pipeline.DEFAULT_ALPHA)
     ap.add_argument("--out", default="")
     ap.add_argument("--json", default="")
+    ap.add_argument(
+        "--images",
+        default="all",
+        help="跑哪些样本：all / synth（合成纹理）/ photo（类自然照片），也可逗号组合",
+    )
     args = ap.parse_args()
 
+    wanted = {s.strip() for s in args.images.split(",") if s.strip()}
+    if "all" in wanted:
+        wanted = {"synth", "photo"}
     rows: list[dict] = []
-    for name, maker in (("合成纹理图", synth), ("类自然照片", photo_like)):
+    cases = {"synth": ("合成纹理图", synth), "photo": ("类自然照片", photo_like)}
+    for key in ("synth", "photo"):
+        if key not in wanted:
+            continue
+        name, maker = cases[key]
         run_case(name, maker(args.width, args.height, seed=0), args.seed, args.base, rows, args.alpha)
 
     header = ["image", "attack", "found", "confidence", "corrected_bytes", "psnr_db", "embed_ms", "extract_ms"]
