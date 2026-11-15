@@ -1,0 +1,19 @@
+# 隐迹 InvisMark · 移动端分析配置
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  exclude:
+    - build/**
+    - .dart_tool/**
+    - android/**
+    - ios/**
+
+linter:
+  rules:
+    # 代码风格与 tokens.dart 的写法保持一致
+    always_declare_return_types: true
+    prefer_single_quotes: true

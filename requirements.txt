@@ -1,0 +1,5 @@
+# 运行时唯一必需依赖
+numpy>=1.24
+
+# 可选：JPEG / WebP / HEIC 的读写
+# pillow>=10.0

@@ -1,0 +1,36 @@
+# 隐迹 InvisMark · Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.venv*/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 运行产物（不要提交）
+data/
+demo/
+demo_run/
+*.db
+*.db-wal
+*.db-shm
+*.evidence.zip
+_lab/
+
+# 桌面/移动端生成物
+apps/mobile/build/
+apps/mobile/.dart_tool/
+apps/mobile/.flutter-plugins
+apps/mobile/.flutter-plugins-dependencies
+apps/mobile/android/.gradle/
+apps/mobile/ios/Pods/
+*.iml
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

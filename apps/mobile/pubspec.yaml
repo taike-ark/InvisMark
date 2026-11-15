@@ -1,0 +1,20 @@
+name: invismark_mobile
+description: "隐迹 InvisMark 移动端（液态玻璃 UI 脚手架，零第三方依赖）"
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "invismark"
+version = "0.1.0"
+description = "隐迹 InvisMark · 图片隐形水印（DWT + 分块 DCT + 扩频 + RS(64,24) 纠错）参考实现"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "InvisMark contributors" }]
+keywords = ["watermark", "blind-watermark", "forensics", "copyright", "image"]
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+# JPEG / WebP / HEIC 的读写需要 Pillow；PNG 与算法本身零第三方依赖。
+pillow = ["pillow>=10.0"]
+dev = []
+
+[project.urls]
+Homepage = "https://github.com/invismark/invismark"
+Documentation = "https://github.com/invismark/invismark/tree/main/docs"
+Issues = "https://github.com/invismark/invismark/issues"
+Source = "https://github.com/invismark/invismark"
+
+[project.scripts]
+invismark = "invismark.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["invismark*"]
+
+[tool.setuptools.package-data]
+invismark = ["py.typed"]

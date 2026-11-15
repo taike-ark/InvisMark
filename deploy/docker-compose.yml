@@ -1,0 +1,25 @@
+# 隐迹 InvisMark · 单机私有化部署（内网/涉密场景）
+#
+#   docker compose -f deploy/docker-compose.yml up -d
+#   curl http://127.0.0.1:8000/healthz
+#
+# 数据（SQLite + 成图 + 证据包）落在命名卷 invismark-data 里，卸载容器不丢。
+services:
+  invismark:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: invismark:0.1.0
+    container_name: invismark
+    ports:
+      - "8000:8000"
+    environment:
+      INVISMARK_SEED: "change-me-before-production"   # 生产请放 KMS，不要写死在 compose 里
+      INVISMARK_TENANT: "default"
+      INVISMARK_QUOTA: "10000"
+    volumes:
+      - invismark-data:/data
+    restart: unless-stopped
+
+volumes:
+  invismark-data:
