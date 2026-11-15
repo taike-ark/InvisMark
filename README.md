@@ -196,6 +196,7 @@ unzip case-001.zip -d case-001 && cd case-001 && python verify.py
 | [移动端 UI 规范](docs/wmforge-移动端UI规范-液态玻璃.md) | 液态玻璃五层材质、Token、组件、三档降级、验收清单 | UI / Flutter |
 | [视觉概念稿](design/mobile-glass-mockup.html) | 3 屏高保真，可调模糊半径/亮暗/降低透明度 | 确认视觉方向 |
 | [路线图](docs/ROADMAP.md) | 参考实现 → 产品化差距、里程碑拆解 | 规划 |
+| [打包说明](docs/PACKAGING.md) | 如何构建 Windows EXE（PyInstaller）与 Android APK（Flutter），含踩坑记录 | 发版 |
 | [贡献指南](CONTRIBUTING.md) / [安全策略](SECURITY.md) | 提 PR、报漏洞 | 参与 |
 
 ## 安全与合规
