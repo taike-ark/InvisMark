@@ -30,3 +30,10 @@
 - 大面积纯色 + 细线文字场景检出率低
 - JPEG 攻击矩阵未实测（解码 JPEG 需 Pillow）
 - 与 wmforge / blind-watermark 不保证位级兼容
+
+### 修复
+
+- **Android 启动崩溃**（`ClassNotFoundException: MainActivity`）：Flutter 3.50 模板的入口是 Kotlin 版
+  `MainActivity.kt`，在当前工具链（AGP 9.3.1 + `android.builtInKotlin=false`）下 Kotlin 源未被编译，
+  dex 缺少入口类。已改为 Java 版 `MainActivity.java`（javac 始终参与），并在 vivo V1921A / Android 10
+  上实机验证启动与首页渲染正常。详见 `docs/PACKAGING.md` §2 第 5 条。

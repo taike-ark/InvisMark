@@ -75,10 +75,28 @@ flutter build apk --release
    `https://mirrors.cloud.tencent.com/gradle/gradle-9.5.0-all.zip`。
 4. **Kotlin DSL 兼容**：Flutter 3.50 生成的 `app/build.gradle.kts` 里带
    `kotlin { compilerOptions { jvmTarget = … } }`，在 AGP 9 的 new DSL 下会报
-   `Unresolved reference 'compilerOptions'`——纯 Dart 应用直接删掉这个块即可。
-5. **国内镜像**：`FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`、
+   `Unresolved reference 'compilerOptions'`。
+5. **⚠️ 启动即崩溃（`ClassNotFoundException: MainActivity`）**：
+   模板的入口是 Kotlin 版 `MainActivity.kt`，但当前工具链（AGP 9.3.1 + `android.builtInKotlin=false`）
+   **根本没有编译 Kotlin 源**（构建不报错，dex 里却缺入口类），APK 装上后一点就崩。
+   修复：把入口改成 Java 版，`javac` 始终参与编译——
+   ```java
+   // android/app/src/main/java/com/invismark/invismark_mobile/MainActivity.java
+   package com.invismark.invismark_mobile;
+   import io.flutter.embedding.android.FlutterActivity;
+   public class MainActivity extends FlutterActivity {}
+   ```
+   同时删掉 `app/build.gradle.kts` 里的 `kotlin { … }` 配置块与 `src/main/kotlin` 目录。
+   自检方法：构建后确认 dex 里有入口类，别只看 "Built app-release.apk"：
+   ```powershell
+   # 解压 APK 后检查 classes.dex
+   $ascii = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes('classes.dex'))
+   $ascii.Contains('invismark_mobile/MainActivity')   # 必须是 True
+   ```
+   实机验证：`adb install -r` → `adb shell am start -n <pkg>/.MainActivity` → `adb shell pidof <pkg>` 有 pid 才算真跑起来。
+6. **国内镜像**：`FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`、
    `PUB_HOSTED_URL=https://pub.flutter-io.cn`；Gradle 可用腾讯/阿里云镜像。
-6. 构建机容器/沙箱里，`APPDATA`、`TEMP`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`
+7. 构建机容器/沙箱里，`APPDATA`、`TEMP`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`
    都要指到可写目录，否则 Dart/Flutter 工具会因写 `.flutter_tool_state` 失败而退出。
 
 ---
