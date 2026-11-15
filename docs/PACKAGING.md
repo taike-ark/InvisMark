@@ -118,6 +118,30 @@ flutter build apk --release
 
 ---
 
+## 3. 手机端「独立离线运行」是怎么做的
+
+v0.1.0 起，App 默认**不依赖任何服务端**：水印引擎整体移植到了 Dart（`apps/mobile/lib/core/`）。
+
+| 模块 | 文件 | 说明 |
+|---|---|---|
+| GF(256) / RS(64,24) | `core/gf256.dart`、`core/rs.dart` | BM + Chien + Forney，与 Python 版参数一致 |
+| 24 字节追溯码 | `core/trace_codec.dart` | 与 Python 版字节布局、CRC32 完全一致，可互读 |
+| PNG 编解码 | `core/png_codec.dart` | 纯 Dart + `dart:io` 的 zlib，零第三方依赖 |
+| 水印引擎 | `core/watermark.dart` | 两级 DWT + 4×4 DCT + 归一化 AC 扩频 |
+| 本地服务 | `services/local_engine.dart` | 解码图片（PNG 自研 / JPEG 走引擎）、独立 isolate 计算、seed/序号持久化 |
+
+测试：`flutter test`（10 个用例：RS 纠错上限、追溯码 CRC、PNG 往返、嵌入→提取闭环、负样本、错误 seed）。
+
+**跨端注意**：两端算法同构但随机数发生器不同（Python 用 numpy PCG64，Dart 用 splitmix64），
+所以「同一 seed 的码图案」不互认；要跨端互解请统一用一侧实现，或把 seed/图案序列化后共用。
+
+### 桌面端数据目录
+
+PyInstaller 单文件默认把 SQLite 写到启动时的工作目录，双击运行时可能是只读目录 → 启动即失败。
+现在默认写 `%APPDATA%\InvisMark\invismark.db`（`INVISMARK_DB` 可覆盖），初始化失败会弹窗提示而不是闪退。
+
+---
+
 ## 3. 发布 Release 建议
 
 ```text

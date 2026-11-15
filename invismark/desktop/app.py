@@ -31,7 +31,17 @@ class DesktopApp:
         self.tk = tk
         self.root = root
         self.settings = settings or Settings()
-        self.service = Service(self.settings)
+        try:
+            self.service = Service(self.settings)
+        except Exception as exc:  # 数据库不可写等启动期错误：给用户可读提示而不是闪退
+            from tkinter import messagebox
+
+            messagebox.showerror(
+                "隐迹 InvisMark 启动失败",
+                f"无法初始化本地数据库：{exc}\n\n数据库路径：{self.settings.db_path}\n"
+                f"可以设置环境变量 INVISMARK_DB 指向一个可写路径后重试。",
+            )
+            raise
         root.title("隐迹 InvisMark · 图片隐形水印（本地离线）")
         root.geometry("820x620")
         root.minsize(720, 540)

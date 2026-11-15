@@ -87,51 +87,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              // ── API 地址 ─────────────────────────────
+              // ── 运行模式 ─────────────────────────────
               Text(
-                'API 地址',
+                '运行模式',
                 style: AppType.title2.copyWith(color: palette.glassTextPrimary),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Android 模拟器用 10.0.2.2 访问宿主机；真机填局域网 IP',
+                state.offlineMode
+                    ? '本地离线：嵌入/提取在手机本机完成，不联网、不上传图片'
+                    : '服务端模式：图片上传到你配置的 InvisMark 服务端处理',
                 style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               Row(
                 children: <Widget>[
                   Expanded(
-                    // 输入框用不透明面：玻璃上再叠模糊会把文字边缘糊掉
-                    child: TextField(
-                      controller: _baseUrl,
-                      keyboardType: TextInputType.url,
-                      autocorrect: false,
-                      textInputAction: TextInputAction.done,
+                    child: Text(
+                      '本地离线模式',
                       style: AppType.footnote.copyWith(color: palette.textPrimary),
-                      cursorColor: AppBrand.ctaEnd,
-                      decoration: InputDecoration(
-                        hintText: 'http://192.168.1.10:8000',
-                        isDense: true,
-                      ),
-                      onSubmitted: (String _) => _saveBaseUrl(),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  TextButton(
-                    onPressed: _saveBaseUrl,
-                    child: Text(
-                      '保存并测试',
-                      style: AppType.footnote.copyWith(color: AppBrand.ctaEnd),
-                    ),
+                  Switch(
+                    value: state.offlineMode,
+                    activeColor: AppBrand.ctaEnd,
+                    onChanged: (bool value) =>
+                        AppStateScope.read(context).setOfflineMode(value),
                   ),
                 ],
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '本月用量：${state.quotaUsed} / ${state.quotaLimit}'
-                '（服务端未启动时显示 0，可在电脑上跑 python -m invismark serve --host 0.0.0.0）',
-                style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
-              ),
+              if (state.offlineMode) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '首次使用会生成一个本地种子（存本机），换机或清数据后旧图将无法用本机提取。',
+                  style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+                ),
+              ] else ...<Widget>[
+                _SectionDivider(palette: palette),
+                // ── API 地址（仅服务端模式需要）────────────
+                Text(
+                  'API 地址',
+                  style: AppType.title2.copyWith(color: palette.glassTextPrimary),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Android 模拟器用 10.0.2.2 访问宿主机；真机填局域网 IP',
+                  style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      // 输入框用不透明面：玻璃上再叠模糊会把文字边缘糊掉
+                      child: TextField(
+                        controller: _baseUrl,
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                        textInputAction: TextInputAction.done,
+                        style: AppType.footnote.copyWith(color: palette.textPrimary),
+                        cursorColor: AppBrand.ctaEnd,
+                        decoration: InputDecoration(
+                          hintText: 'http://192.168.1.10:8000',
+                          isDense: true,
+                        ),
+                        onSubmitted: (String _) => _saveBaseUrl(),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    TextButton(
+                      onPressed: _saveBaseUrl,
+                      child: Text(
+                        '保存并测试',
+                        style: AppType.footnote.copyWith(color: AppBrand.ctaEnd),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '本月用量：${state.quotaUsed} / ${state.quotaLimit}'
+                  '（服务端未启动时显示 0，可在电脑上跑 python -m invismark serve --host 0.0.0.0）',
+                  style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+                ),
+              ],
+              _SectionDivider(palette: palette),
               _SectionDivider(palette: palette),
 
               // ── 视觉效果（三档降级）─────────────────────

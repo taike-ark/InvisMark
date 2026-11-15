@@ -24,12 +24,41 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _default_data_root() -> Path:
+    """数据目录：优先 %APPDATA%\\InvisMark（Windows）或 ~/.local/share/invismark。
+
+    桌面端双击运行时 cwd 可能不可写（Program Files、只读共享盘），
+    把 SQLite 放到用户目录能避免「一启动就报 unable to open database file」。
+    """
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        return Path(appdata) / "InvisMark"
+    home = os.environ.get("HOME") or os.path.expanduser("~")
+    return Path(home) / ".local" / "share" / "invismark"
+
+
+def _default_db_path() -> str:
+    explicit = os.environ.get("INVISMARK_DB")
+    if explicit:
+        return explicit
+    root = _default_data_root()
+    try:
+        root.mkdir(parents=True, exist_ok=True)
+        return str(root / "invismark.db")
+    except OSError:
+        # 连用户目录都写不了（极端受限环境）就退回当前目录
+        return "invismark.db"
+
+
 @dataclass
 class Settings:
     """一个进程一套配置；私有化部署时改这一个结构体/环境变量即可。"""
 
-    db_path: str = field(default_factory=lambda: os.environ.get("INVISMARK_DB", "invismark.db"))
-    data_dir: str = field(default_factory=lambda: os.environ.get("INVISMARK_DATA", "data"))
+    db_path: str = field(default_factory=_default_db_path)
+    data_dir: str = field(
+        default_factory=lambda: os.environ.get("INVISMARK_DATA")
+        or str(_default_data_root())
+    )
     seed: int = field(default_factory=lambda: _env_int("INVISMARK_SEED", 20260115))
     alpha: float = field(default_factory=lambda: _env_float("INVISMARK_ALPHA", pipeline.DEFAULT_ALPHA))
     base_long_edge: int = field(

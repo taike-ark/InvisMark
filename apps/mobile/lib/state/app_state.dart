@@ -7,8 +7,10 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
+import '../core/trace_codec.dart';
 import '../models/trace.dart';
 import '../services/api_client.dart';
+import '../services/local_engine.dart';
 import '../services/native_media.dart';
 import '../theme/tokens.dart';
 
@@ -55,6 +57,9 @@ class AppState extends ChangeNotifier {
 
   String apiBaseUrl;
   String? authToken;
+
+  /// 本地离线模式（默认开）：嵌入/提取都在手机本机完成，不需要服务端。
+  bool offlineMode = true;
 
   ThemePreference themePreference = ThemePreference.system;
   GlassPreference glassPreference = GlassPreference.auto;
@@ -147,9 +152,24 @@ class AppState extends ChangeNotifier {
       (GlassPreference value) => value.name == glass,
       orElse: () => GlassPreference.auto,
     );
+    offlineMode = prefs['offline'] != 'false'; // 默认本地离线
     notifyListeners();
-    // 配额拿不到不影响使用（离线/服务端未启动）
-    await refreshQuota(quiet: true);
+    // 本地模式不需要服务端；服务端模式才拉配额
+    if (!offlineMode) {
+      await refreshQuota(quiet: true);
+    }
+  }
+
+  void setOfflineMode(bool value) {
+    if (offlineMode == value) {
+      return;
+    }
+    offlineMode = value;
+    NativeMedia.savePref('offline', value ? 'true' : 'false');
+    notifyListeners();
+    if (!value) {
+      refreshQuota(quiet: true);
+    }
   }
 
   /// 拉取本月用量；[quiet] 为 true 时不把错误写进界面。
@@ -253,7 +273,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 嵌入单图。返回是否成功；失败原因写进 [errorMessage]。
+  /// 嵌入单图：离线模式走本地引擎，否则走服务端。返回是否成功。
   Future<bool> embedImage({
     required Uint8List bytes,
     required String filename,
@@ -269,6 +289,27 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (offlineMode) {
+        final LocalEmbedResult local = await LocalEngine.embed(bytes, resourceCode: resourceCode);
+        final EmbedResult result = EmbedResult(
+          assetId: 'local',
+          traceId: local.traceId,
+          quality: EmbedQuality(psnr: local.psnr, ssim: local.ssim),
+          embeddedAt: DateTime.now().toUtc(),
+          imageBytes: local.pngBytes,
+        );
+        lastEmbed = result;
+        lastWatermarkedBytes = result.imageBytes;
+        lastWatermarkedName = '${result.traceId}.png';
+        recentTasks.insert(0, RecentTask.fromEmbed(result));
+        if (recentTasks.length > maxRecentTasks) {
+          recentTasks.removeLast();
+        }
+        embedding = false;
+        notifyListeners();
+        return true;
+      }
+
       final EmbedResult result = await client.embed(
         bytes: bytes,
         filename: filename,
@@ -284,10 +325,14 @@ class AppState extends ChangeNotifier {
         recentTasks.removeLast();
       }
       notifyListeners();
-      // 配额随嵌入增长，静默刷新
       refreshQuota(quiet: true);
       return true;
     } on ApiException catch (error) {
+      embedding = false;
+      errorMessage = error.message;
+      notifyListeners();
+      return false;
+    } on StateError catch (error) {
       embedding = false;
       errorMessage = error.message;
       notifyListeners();
@@ -300,7 +345,7 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// 检测单图。未命中是正常结果（detectStatus = notFound），不是错误。
+  /// 检测单图：离线模式走本地引擎，否则走服务端。
   Future<bool> detectImage({
     required Uint8List bytes,
     required String filename,
@@ -314,12 +359,40 @@ class AppState extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (offlineMode) {
+        final LocalExtractResult local = await LocalEngine.extract(bytes);
+        if (local.found && local.trace != null) {
+          final TraceCode trace = local.trace!;
+          lastTrace = TraceResult(
+            found: true,
+            traceId: trace.hex,
+            resourceCode: trace.resourceCode,
+            embeddedAt: trace.embeddedAt,
+            confidence: local.confidence,
+            message: '本地引擎检出（用户索引 ${trace.userIndex}）',
+          );
+          detectStatus = DetectStatus.found;
+        } else {
+          lastTrace = TraceResult.notFound(
+            message: local.reason.isEmpty ? '未在该图片中检出有效追溯码' : local.reason,
+          );
+          detectStatus = DetectStatus.notFound;
+        }
+        notifyListeners();
+        return local.found;
+      }
+
       final TraceResult result = await client.extract(bytes: bytes, filename: filename);
       lastTrace = result;
       detectStatus = result.found ? DetectStatus.found : DetectStatus.notFound;
       notifyListeners();
       return result.found;
     } on ApiException catch (error) {
+      detectStatus = DetectStatus.failed;
+      errorMessage = error.message;
+      notifyListeners();
+      return false;
+    } on StateError catch (error) {
       detectStatus = DetectStatus.failed;
       errorMessage = error.message;
       notifyListeners();

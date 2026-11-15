@@ -158,10 +158,20 @@ python -m invismark gui     # Windows/macOS 官方 Python 自带 tkinter
 ```
 
 单图嵌入 / 单图检测 / 目录批量 / 导出证据包 / 校验审计链，全部本地完成，图片不出机器。
+数据库默认落在 `%APPDATA%\InvisMark\invismark.db`（macOS/Linux 在 `~/.local/share/invismark/`），
+可用环境变量 `INVISMARK_DB` 覆盖——避免从只读目录启动时无法写库。
 
-### 4) 移动端（脚手架）
+### 4) 移动端（独立离线运行）
 
-`apps/mobile/` 是 Flutter 双端脚手架（液态玻璃三档降级 + API 客户端），需自行 `flutter create` 补齐平台目录，
+`apps/mobile/` 是 Flutter 双端 App，**默认本地离线模式**：水印嵌入/提取全部在手机上完成，
+不联网、不上传图片，也不需要服务端。算法是 Python 参考实现的 Dart 移植
+（两级 DWT + 4×4 DCT + 归一化 AC 扩频 + RS(64,24) + PNG 编解码），在手机端用独立 isolate 跑。
+
+- 首次启动会在本机生成一个随机 seed（存本地），之后固定；换机/清数据后旧图无法用本机提取。
+- 设置页可切换「服务端模式」，改用远端 `/v1/embed`、`/v1/extract`（需要自己部署服务端）。
+- `apps/mobile/android/` 是完整 Android 平台工程（Java 版 `MainActivity`，零第三方插件提供
+  选图/拍照/保存/分享），`flutter build apk --release` 即可出包。
+
 详见 [apps/mobile/README.md](apps/mobile/README.md) 与 [移动端 UI 规范](docs/wmforge-移动端UI规范-液态玻璃.md)。
 
 ## 证据包：离开本系统也能验

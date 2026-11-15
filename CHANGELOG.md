@@ -37,3 +37,6 @@
   `MainActivity.kt`，在当前工具链（AGP 9.3.1 + `android.builtInKotlin=false`）下 Kotlin 源未被编译，
   dex 缺少入口类。已改为 Java 版 `MainActivity.java`（javac 始终参与），并在 vivo V1921A / Android 10
   上实机验证启动与首页渲染正常。详见 `docs/PACKAGING.md` §2 第 5 条。
+- **手机端改为独立离线运行**：水印引擎移植到 Dart（`apps/mobile/lib/core/`），嵌入/提取在本机完成，
+  不再依赖服务端；设置页可切回服务端模式。
+- **桌面端数据目录**：SQLite 默认落 `%APPDATA%\InvisMark\`，启动失败弹窗提示，不再因只读 cwd 闪退。

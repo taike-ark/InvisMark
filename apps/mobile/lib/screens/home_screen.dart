@@ -78,27 +78,41 @@ class HomeScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              // 玻璃内部不再叠玻璃：配额条用普通进度条 + 说明文字
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(AppRadius.full),
-                      child: LinearProgressIndicator(
-                        value: quotaRatio,
-                        minHeight: AppSpacing.sm,
-                        backgroundColor: palette.glassOverlayWhite,
-                        color: AppBrand.ctaEnd,
+              // 玻璃内部不再叠玻璃：本地模式显示「本机处理」，服务端模式显示配额
+              if (state.offlineMode)
+                Row(
+                  children: <Widget>[
+                    Icon(Icons.phone_iphone, size: AppIconSize.sm, color: AppBrand.ctaEnd),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        '本地离线处理 · 图片不上传',
+                        style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Text(
-                    '本月 ${state.quotaUsed} / ${state.quotaLimit}',
-                    style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
-                  ),
-                ],
-              ),
+                  ],
+                )
+              else
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadius.full),
+                        child: LinearProgressIndicator(
+                          value: quotaRatio,
+                          minHeight: AppSpacing.sm,
+                          backgroundColor: palette.glassOverlayWhite,
+                          color: AppBrand.ctaEnd,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.md),
+                    Text(
+                      '本月 ${state.quotaUsed} / ${state.quotaLimit}',
+                      style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+                    ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -227,16 +241,19 @@ class _HeaderPill extends StatelessWidget {
         height: AppLayout.navPillHeight,
         child: Row(
           children: <Widget>[
-            Text(
-              '隐迹 InvisMark',
-              style: AppType.headline.copyWith(color: palette.glassTextPrimary),
+            Expanded(
+              child: Text(
+                '隐迹 InvisMark',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppType.headline.copyWith(color: palette.glassTextPrimary),
+              ),
             ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               '· 张*',
               style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
             ),
-            const Spacer(),
             _IconAction(
               icon: Icons.settings_outlined,
               semanticsLabel: '打开设置',
