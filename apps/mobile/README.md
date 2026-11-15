@@ -1,13 +1,17 @@
 # 隐迹 InvisMark · 移动端（Flutter）
 
-液态玻璃 UI 脚手架，对应设计规范 [`docs/wmforge-移动端UI规范-液态玻璃.md`](../../docs/wmforge-移动端UI规范-液态玻璃.md)。
+**独立离线运行**：水印嵌入/提取全部在手机本机完成（纯 Dart 引擎，见 `lib/core/`），
+默认不依赖服务端、不联网、不上传图片；设置页可切换「服务端模式」。
 
-**零第三方依赖**：只用 Flutter SDK 自带能力 + `cupertino_icons`。
-相册/相机/保存/分享等需要原生插件的能力全部用 `// TODO(M3)` 标注，等 M3 阶段接入。
+液态玻璃 UI 对应设计规范 [`docs/wmforge-移动端UI规范-液态玻璃.md`](../../docs/wmforge-移动端UI规范-液态玻璃.md)。
 
-- Flutter：`sdk: ^3.5.0`（建议 3.24+，Impeller 默认开启）
+**零第三方依赖**：只用 Flutter SDK 自带能力 + `cupertino_icons`；相册/相机/保存/分享
+由 `android/` 里的 Java 版 `MainActivity`（MethodChannel）实现，不引 image_picker/share_plus。
+
+- Flutter：`sdk: ^3.5.0`（实测 3.50.0 / Dart 3.14）
 - 状态管理：`ChangeNotifier` + `InheritedNotifier`（不引 provider/riverpod）
-- 网络：`dart:io HttpClient`（不引 dio/http）
+- 网络：仅服务端模式使用 `dart:io HttpClient`（不引 dio/http）
+- 本地引擎：`core/`（GF256/RS/PngCodec/WatermarkEngine）+ `services/local_engine.dart`
 
 ---
 
@@ -17,9 +21,15 @@
 apps/mobile/
 ├─ pubspec.yaml
 ├─ analysis_options.yaml
+├─ android/                         # 完整平台工程（Java MainActivity：选图/拍照/保存/分享）
 ├─ lib/
 │  ├─ main.dart                     # runApp + MaterialApp（亮/暗主题、标题「隐迹 InvisMark」）
 │  ├─ app.dart                      # IndexedStack 三页 + 悬浮玻璃 TabBar + 档位解析
+│  ├─ core/                         # 本地离线水印引擎（零依赖）
+│  │  ├─ gf256.dart / rs.dart       # GF(256) 与 RS(64,24)
+│  │  ├─ trace_codec.dart           # 24 字节追溯码（与 Python 版字节布局一致）
+│  │  ├─ png_codec.dart             # 纯 Dart PNG 编解码（zlib 用 dart:io）
+│  │  └─ watermark.dart             # 两级 DWT + 4×4 DCT + 归一化 AC 扩频
 │  ├─ theme/
 │  │  ├─ tokens.dart                # 唯一 Token 源：颜色/圆角/间距/字阶/动效/玻璃材质/档位
 │  │  └─ app_theme.dart             # ThemeData 亮/暗
@@ -32,11 +42,16 @@ apps/mobile/
 │  │  ├─ home_screen.dart           # 最近任务 + 大按钮「选图嵌入」
 │  │  ├─ result_screen.dart         # PSNR/SSIM、trace_id、保存/分享/复制链接
 │  │  ├─ detect_screen.dart         # 选图检测：命中 / 未检出两态
-│  │  └─ settings_screen.dart       # API 地址、玻璃档位、外观、隐私说明
-│  ├─ services/api_client.dart      # POST /v1/embed、/v1/extract（手写 multipart）
+│  │  └─ settings_screen.dart       # 运行模式、API 地址（服务端模式）、玻璃档位、外观
+│  ├─ services/
+│  │  ├─ local_engine.dart          # 本地引擎入口（解码 + isolate + seed 持久化）
+│  │  ├─ native_media.dart          # 原生媒体桥（选图/拍照/保存/分享/设置）
+│  │  └─ api_client.dart            # 服务端模式：POST /v1/embed、/v1/extract
 │  ├─ models/trace.dart             # EmbedResult / TraceResult / EmbedQuality
 │  └─ state/app_state.dart          # AppState(ChangeNotifier) + AppStateScope
-└─ test/widget_test.dart            # 冒烟测试：pump 首页，断言标题
+└─ test/
+   ├─ core_test.dart                # 引擎测试（RS/追溯码/PNG/嵌入→提取闭环/负样本）
+   └─ widget_test.dart              # 冒烟测试：pump 首页，断言标题
 ```
 
 ---
