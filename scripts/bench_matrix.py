@@ -15,8 +15,12 @@ import argparse
 import csv
 import io
 import json
+import sys
 import time
 from pathlib import Path
+
+# 允许 `python scripts/bench_matrix.py` 直接运行（脚本目录不是仓库根，需手动补 sys.path）
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import numpy as np
 

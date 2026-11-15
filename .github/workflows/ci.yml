@@ -29,6 +29,11 @@ jobs:
       - name: 单元测试（59 个）
         run: python -m unittest discover -s tests -t . -v
 
+      - name: 打包自检（editable install + 控制台入口）
+        run: |
+          python -m pip install --no-deps -e .
+          invismark --version
+
       - name: 端到端 demo
         run: python -m invismark demo --out demo
 
