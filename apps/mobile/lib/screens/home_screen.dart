@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/trace.dart';
+import '../services/native_media.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/glass_button.dart';
@@ -26,14 +27,13 @@ class HomeScreen extends StatelessWidget {
   final VoidCallback onOpenDetect;
   final VoidCallback onOpenSettings;
 
-  /// 演示配额：M3 接 GET /v1/quota 后替换
-  static const int quotaUsed = 128;
-  static const int quotaLimit = 1000;
-
   @override
   Widget build(BuildContext context) {
     final AppState state = AppStateScope.of(context);
     final AppPalette palette = AppPalette.of(context);
+    final double quotaRatio = state.quotaLimit <= 0
+        ? 0
+        : (state.quotaUsed / state.quotaLimit).clamp(0.0, 1.0);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -85,7 +85,7 @@ class HomeScreen extends StatelessWidget {
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(AppRadius.full),
                       child: LinearProgressIndicator(
-                        value: quotaUsed / quotaLimit,
+                        value: quotaRatio,
                         minHeight: AppSpacing.sm,
                         backgroundColor: palette.glassOverlayWhite,
                         color: AppBrand.ctaEnd,
@@ -94,7 +94,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Text(
-                    '本月 $quotaUsed / $quotaLimit',
+                    '本月 ${state.quotaUsed} / ${state.quotaLimit}',
                     style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
                   ),
                 ],
@@ -152,20 +152,52 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// 选图：原生相册/相机需要插件（M3），当前用弹窗说明 + 演示数据走通流程。
+  /// 选图 → 上传嵌入 → 跳结果页；取消或失败都只提示，不改动已有数据。
   Future<void> _handleEmbedTap(BuildContext context) async {
     final AppState state = AppStateScope.read(context);
-    final bool? useDemo = await showModalBottomSheet<bool>(
+    final String? source = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: AppBrand.clear,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) => const _PickerSheet(),
     );
-    if (!context.mounted || useDemo != true) {
+    if (!context.mounted || source == null) {
       return;
     }
-    state.loadDemoEmbed();
+    final PickedImage picked;
+    try {
+      picked = source == 'camera'
+          ? await NativeMedia.capturePhoto()
+          : await NativeMedia.pickImage();
+    } on NativeMediaException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      if (!error.cancelled) {
+        state.reportError(error.message);
+        _toast(context, error.message);
+      }
+      return;
+    }
+    if (!context.mounted) {
+      return;
+    }
+    _toast(context, '已选择 ${picked.name}（${(picked.sizeInBytes / 1024).toStringAsFixed(0)} KB），正在嵌入…');
+    final bool ok = await state.embedImage(bytes: picked.bytes, filename: picked.name);
+    if (!context.mounted) {
+      return;
+    }
+    if (!ok) {
+      _toast(context, state.errorMessage ?? '嵌入失败');
+      return;
+    }
     _openResult(context, state.lastEmbed);
+  }
+
+  void _toast(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: AppMotion.toast),
+    );
   }
 
   void _openResult(BuildContext context, EmbedResult? result) {
@@ -502,7 +534,7 @@ class _ErrorStrip extends StatelessWidget {
   }
 }
 
-/// 选图来源说明 + 演示入口（原生插件 M3 接入）
+/// 选图来源：相册 / 相机（原生通道，无第三方插件）
 class _PickerSheet extends StatelessWidget {
   const _PickerSheet();
 
@@ -533,24 +565,30 @@ class _PickerSheet extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                // TODO(M3): 接入原生插件 —— image_picker（相册/相机）、camera（取景），
-                // 接入后这里换成真实的 bytes，再调用 AppState.embedImage()。
-                '相册与相机需要原生插件（M3 接入 image_picker / camera）。'
-                '当前脚手架用演示数据走通完整流程。',
+                '图片会上传到你在「设置」里配置的 InvisMark 服务端做嵌入，'
+                '处理完返回带水印成图；水印在本机不可见，需用服务端提取。',
                 style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
               ),
               const SizedBox(height: AppSpacing.xl),
               GlassPrimaryButton(
-                label: '用演示数据继续',
-                icon: Icons.science_outlined,
-                semanticsLabel: '使用演示数据走通嵌入流程',
-                onPressed: () => Navigator.of(context).pop(true),
+                label: '从相册选择',
+                icon: Icons.photo_library_outlined,
+                semanticsLabel: '从系统相册选择图片',
+                onPressed: () => Navigator.of(context).pop('gallery'),
               ),
               const SizedBox(height: AppSpacing.md),
               GlassSecondaryButton(
-                label: '取消',
-                semanticsLabel: '取消选图',
-                onPressed: () => Navigator.of(context).pop(false),
+                label: '现场拍摄',
+                semanticsLabel: '打开相机拍摄照片',
+                onPressed: () => Navigator.of(context).pop('camera'),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(
+                  '取消',
+                  style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+                ),
               ),
             ],
           ),

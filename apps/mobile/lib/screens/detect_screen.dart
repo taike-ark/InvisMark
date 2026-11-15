@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/trace.dart';
+import '../services/native_media.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/glass_button.dart';
@@ -32,15 +33,34 @@ class _DetectScreenState extends State<DetectScreen> {
   }
 
   Future<void> _pickAndDetect() async {
-    // TODO(M3): 接入原生相机/相册插件拿到 bytes，然后调用：
-    //   await AppStateScope.read(context).detectImage(bytes: bytes, filename: name);
-    // 当前脚手架用演示数据切换命中/未命中两态，方便验收 UI。
     final AppState state = AppStateScope.read(context);
-    state.loadDemoTrace();
+    PickedImage? picked;
+    try {
+      picked = await NativeMedia.pickImage();
+    } on NativeMediaException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (!error.cancelled) {
+        state.reportError(error.message);
+        _toast(error.message);
+      }
+      return;
+    }
     if (!mounted) {
       return;
     }
-    _toast('演示命中已载入（原生相机待 M3 接入）');
+    await state.detectImage(bytes: picked.bytes, filename: picked.name);
+    if (!mounted) {
+      return;
+    }
+    final String message = switch (state.detectStatus) {
+      DetectStatus.found => '检出追溯码：${state.lastTrace?.traceId ?? ''}',
+      DetectStatus.notFound => '未在该图片中检出有效追溯码',
+      DetectStatus.failed => state.errorMessage ?? '检测失败',
+      _ => '检测完成',
+    };
+    _toast(message);
   }
 
   void _manualReview() {
@@ -81,8 +101,6 @@ class _DetectScreenState extends State<DetectScreen> {
           showReasons: _showReasons,
           onToggleReasons: () => setState(() => _showReasons = !_showReasons),
           onPick: _pickAndDetect,
-          onDemoFound: () => AppStateScope.read(context).loadDemoTrace(),
-          onDemoMiss: () => AppStateScope.read(context).loadDemoTrace(found: false),
           onReset: AppStateScope.read(context).resetDetect,
           onManualReview: _manualReview,
           onOpenProof: _openProof,
@@ -241,8 +259,6 @@ class _StatusCard extends StatelessWidget {
     required this.showReasons,
     required this.onToggleReasons,
     required this.onPick,
-    required this.onDemoFound,
-    required this.onDemoMiss,
     required this.onReset,
     required this.onManualReview,
     required this.onOpenProof,
@@ -255,8 +271,6 @@ class _StatusCard extends StatelessWidget {
   final bool showReasons;
   final VoidCallback onToggleReasons;
   final VoidCallback onPick;
-  final VoidCallback onDemoFound;
-  final VoidCallback onDemoMiss;
   final VoidCallback onReset;
   final VoidCallback onManualReview;
   final VoidCallback onOpenProof;
@@ -296,8 +310,8 @@ class _StatusCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          '支持"被压缩 / 截图 / 裁切"过的图片恢复 trace_id；'
-          '原生相机与相册需要在 M3 接入插件，当前按钮使用演示数据。',
+          '支持"被压缩 / 截图 / 裁切"过的图片恢复 trace_id。'
+          '选图后会直接上传到服务端提取（不走演示数据）。',
           style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -306,26 +320,6 @@ class _StatusCard extends StatelessWidget {
           icon: Icons.image_search,
           semanticsLabel: '选择一张图片并检测隐含水印',
           onPressed: onPick,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: _FlatButton(
-                label: '演示：命中',
-                palette: palette,
-                onTap: onDemoFound,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: _FlatButton(
-                label: '演示：未检出',
-                palette: palette,
-                onTap: onDemoMiss,
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -351,7 +345,7 @@ class _StatusCard extends StatelessWidget {
   }
 
   Widget _buildFound() {
-    final TraceResult found = trace ?? TraceResult.demoFound();
+    final TraceResult found = trace ?? TraceResult.notFound(message: '未检出');
     final TraceUser? user = found.user;
 
     return Column(

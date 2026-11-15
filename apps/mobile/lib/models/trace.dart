@@ -3,6 +3,9 @@
 // 数据模型：POST /v1/embed 与 POST /v1/extract 的返回体，
 // 字段与《项目说明书》§8.1 / §8.2 对齐。手写 fromJson，缺字段时给安全默认值。
 
+import 'dart:convert';
+import 'dart:typed_data';
+
 /// 图像质量指标（服务端返回，客户端不重算）。
 class EmbedQuality {
   const EmbedQuality({required this.psnr, required this.ssim});
@@ -39,6 +42,7 @@ class EmbedResult {
     this.imageUrl,
     this.embeddedAt,
     this.expiresAt,
+    this.imageBytes,
   });
 
   final String assetId;
@@ -48,6 +52,9 @@ class EmbedResult {
   final DateTime? embeddedAt;
   final DateTime? expiresAt;
 
+  /// 服务端返回的成图（PNG 字节），用于结果页展示、保存到相册、分享
+  final Uint8List? imageBytes;
+
   factory EmbedResult.fromJson(Map<String, dynamic> json) => EmbedResult(
         assetId: _asString(json['asset_id']) ?? '',
         traceId: _asString(json['trace_id']) ?? '',
@@ -55,6 +62,7 @@ class EmbedResult {
         quality: EmbedQuality.fromJson(_asMap(json['quality'])),
         embeddedAt: _asDateTime(json['embedded_at']),
         expiresAt: _asDateTime(json['expires_at']),
+        imageBytes: _decodeBase64(json['image_base64']),
       );
 
   /// 演示数据：未接入原生相册插件 / 无网络时用于走通 UI 流程。
@@ -199,6 +207,17 @@ Map<String, dynamic>? _asMap(Object? value) {
     return value;
   }
   return null;
+}
+
+Uint8List? _decodeBase64(Object? value) {
+  if (value is! String || value.isEmpty) {
+    return null;
+  }
+  try {
+    return base64Decode(value);
+  } on FormatException {
+    return null;
+  }
 }
 
 /// 时间展示：2026-11-15 17:20（本地时区）。不引 intl，手动补零。

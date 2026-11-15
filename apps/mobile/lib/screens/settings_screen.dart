@@ -40,9 +40,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _saveBaseUrl() {
-    final bool ok = AppStateScope.read(context).applyBaseUrl(_baseUrl.text);
-    _toast(ok ? 'API 地址已更新' : 'API 地址不合法，示例：http://192.168.1.10:8000');
+  Future<void> _saveBaseUrl() async {
+    final AppState state = AppStateScope.read(context);
+    final bool ok = state.applyBaseUrl(_baseUrl.text);
+    if (!ok) {
+      _toast('API 地址不合法，示例：http://192.168.1.10:8000');
+      return;
+    }
+    setState(() {});
+    final String? error = await state.testConnection();
+    if (!mounted) {
+      return;
+    }
+    _toast(error == null
+        ? '已保存，服务连接正常（本月 ${state.quotaUsed}/${state.quotaLimit}）'
+        : '已保存，但连接失败：$error');
   }
 
   @override
@@ -108,11 +120,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   TextButton(
                     onPressed: _saveBaseUrl,
                     child: Text(
-                      '保存',
+                      '保存并测试',
                       style: AppType.footnote.copyWith(color: AppBrand.ctaEnd),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '本月用量：${state.quotaUsed} / ${state.quotaLimit}'
+                '（服务端未启动时显示 0，可在电脑上跑 python -m invismark serve --host 0.0.0.0）',
+                style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
               ),
               _SectionDivider(palette: palette),
 
@@ -203,7 +221,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               _SectionDivider(palette: palette),
               Text(
-                '隐迹 InvisMark · 移动端脚手架 v0.1.0\nUI 规范 v0.1 · Apache-2.0',
+                '隐迹 InvisMark · 移动端 v0.1.0\nUI 规范 v0.1 · Apache-2.0',
                 style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
               ),
             ],

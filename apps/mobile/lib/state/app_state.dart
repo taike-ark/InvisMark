@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../models/trace.dart';
 import '../services/api_client.dart';
+import '../services/native_media.dart';
 import '../theme/tokens.dart';
 
 /// 外观模式（设置页「跟随系统 / 亮 / 暗」）
@@ -42,8 +43,12 @@ class RecentTask {
 class AppState extends ChangeNotifier {
   AppState({this.apiBaseUrl = defaultBaseUrl, this.authToken});
 
-  /// Android 模拟器访问宿主机用 10.0.2.2；真机改成局域网 IP（设置页可改）
-  static const String defaultBaseUrl = 'http://10.0.2.2:8000';
+  /// Android 模拟器访问宿主机用 10.0.2.2；真机在设置页改成局域网 IP。
+  /// 构建时可用 `--dart-define=INVISMARK_API=http://192.168.1.10:8000` 覆盖默认值。
+  static const String defaultBaseUrl = String.fromEnvironment(
+    'INVISMARK_API',
+    defaultValue: 'http://10.0.2.2:8000',
+  );
 
   /// 首页最多保留的最近任务条数
   static const int maxRecentTasks = 3;
@@ -59,6 +64,17 @@ class AppState extends ChangeNotifier {
   EmbedResult? lastEmbed;
   TraceResult? lastTrace;
   String? errorMessage;
+
+  /// 本月用量（GET /v1/quota），未连上服务端时保持 0
+  int quotaUsed = 0;
+  int quotaLimit = 1000;
+
+  /// 最近一次真实嵌入的成图字节（结果页展示 / 保存相册 / 分享）
+  Uint8List? lastWatermarkedBytes;
+  String? lastWatermarkedName;
+
+  /// 最近一次选中的原始图片（重试、再次嵌入可用）
+  PickedImage? lastPicked;
 
   final List<RecentTask> recentTasks = <RecentTask>[];
 
@@ -105,11 +121,78 @@ class AppState extends ChangeNotifier {
         measuredFps: measuredFps,
       );
 
+  /// 启动时读取本地设置（API 地址 / 主题 / 玻璃档位），并拉一次配额。
+  Future<void> init() async {
+    final Map<String, String> prefs = await NativeMedia.loadPrefs();
+    final String? baseUrl = prefs['baseUrl'];
+    if (baseUrl != null) {
+      final String? normalized = normalizeBaseUrl(baseUrl);
+      if (normalized != null && normalized != apiBaseUrl) {
+        apiBaseUrl = normalized;
+        _client?.dispose();
+        _client = null;
+      }
+    }
+    final String? token = prefs['authToken'];
+    if (token != null && token.isNotEmpty) {
+      authToken = token;
+    }
+    final String? theme = prefs['theme'];
+    themePreference = ThemePreference.values.firstWhere(
+      (ThemePreference value) => value.name == theme,
+      orElse: () => ThemePreference.system,
+    );
+    final String? glass = prefs['glass'];
+    glassPreference = GlassPreference.values.firstWhere(
+      (GlassPreference value) => value.name == glass,
+      orElse: () => GlassPreference.auto,
+    );
+    notifyListeners();
+    // 配额拿不到不影响使用（离线/服务端未启动）
+    await refreshQuota(quiet: true);
+  }
+
+  /// 拉取本月用量；[quiet] 为 true 时不把错误写进界面。
+  Future<bool> refreshQuota({bool quiet = false}) async {
+    try {
+      final Map<String, dynamic> json = await client.quota();
+      final int used = (json['used'] as num?)?.toInt() ?? quotaUsed;
+      final int limit = (json['limit'] as num?)?.toInt() ?? quotaLimit;
+      quotaUsed = used;
+      quotaLimit = limit > 0 ? limit : quotaLimit;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      if (!quiet) {
+        errorMessage = '无法获取配额：$error';
+        notifyListeners();
+      }
+      return false;
+    }
+  }
+
+  /// 设置页「测试连接」：成功返回 null，失败返回错误文案。
+  Future<String?> testConnection() async {
+    try {
+      final Map<String, dynamic> json = await client.health();
+      if (json['ok'] == true) {
+        await refreshQuota(quiet: true);
+        return null;
+      }
+      return '服务返回异常：$json';
+    } on ApiException catch (error) {
+      return error.message;
+    } catch (error) {
+      return '连接失败：$error';
+    }
+  }
+
   void setThemePreference(ThemePreference value) {
     if (themePreference == value) {
       return;
     }
     themePreference = value;
+    NativeMedia.savePref('theme', value.name);
     notifyListeners();
   }
 
@@ -118,6 +201,7 @@ class AppState extends ChangeNotifier {
       return;
     }
     glassPreference = value;
+    NativeMedia.savePref('glass', value.name);
     notifyListeners();
   }
 
@@ -153,6 +237,7 @@ class AppState extends ChangeNotifier {
     _client?.dispose();
     _client = null;
     errorMessage = null;
+    NativeMedia.savePref('baseUrl', normalized);
     notifyListeners();
     return true;
   }
@@ -169,7 +254,6 @@ class AppState extends ChangeNotifier {
   }
 
   /// 嵌入单图。返回是否成功；失败原因写进 [errorMessage]。
-  /// 原生相册/相机插件尚未接入（M3），调用方需要自己提供 bytes。
   Future<bool> embedImage({
     required Uint8List bytes,
     required String filename,
@@ -181,6 +265,7 @@ class AppState extends ChangeNotifier {
     }
     embedding = true;
     errorMessage = null;
+    lastPicked = PickedImage(bytes: bytes, name: filename);
     notifyListeners();
 
     try {
@@ -191,12 +276,16 @@ class AppState extends ChangeNotifier {
         strength: strength,
       );
       lastEmbed = result;
+      lastWatermarkedBytes = result.imageBytes;
+      lastWatermarkedName = '${result.traceId}.png';
       embedding = false;
       recentTasks.insert(0, RecentTask.fromEmbed(result));
       if (recentTasks.length > maxRecentTasks) {
         recentTasks.removeLast();
       }
       notifyListeners();
+      // 配额随嵌入增长，静默刷新
+      refreshQuota(quiet: true);
       return true;
     } on ApiException catch (error) {
       embedding = false;
@@ -243,28 +332,6 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// 演示：无原生插件 / 无后端时走通 UI（结果页、命中卡）。
-  void loadDemoEmbed() {
-    final EmbedResult result = EmbedResult.demo();
-    lastEmbed = result;
-    errorMessage = null;
-    recentTasks.insert(0, RecentTask.fromEmbed(result));
-    if (recentTasks.length > maxRecentTasks) {
-      recentTasks.removeLast();
-    }
-    notifyListeners();
-  }
-
-  /// 演示：命中 / 未命中两态
-  void loadDemoTrace({bool found = true}) {
-    lastTrace = found
-        ? TraceResult.demoFound()
-        : TraceResult.notFound(message: '未在该图片中检出有效追溯码');
-    detectStatus = found ? DetectStatus.found : DetectStatus.notFound;
-    errorMessage = null;
-    notifyListeners();
-  }
-
   void resetDetect() {
     if (detectStatus == DetectStatus.idle && lastTrace == null) {
       return;
@@ -279,6 +346,12 @@ class AppState extends ChangeNotifier {
       return;
     }
     errorMessage = null;
+    notifyListeners();
+  }
+
+  /// 界面层错误（如选图失败），会显示在首页/检测页的错误条上，不只是一闪而过的 toast。
+  void reportError(String message) {
+    errorMessage = message;
     notifyListeners();
   }
 

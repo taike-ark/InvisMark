@@ -94,9 +94,26 @@ flutter build apk --release
    $ascii.Contains('invismark_mobile/MainActivity')   # 必须是 True
    ```
    实机验证：`adb install -r` → `adb shell am start -n <pkg>/.MainActivity` → `adb shell pidof <pkg>` 有 pid 才算真跑起来。
-6. **国内镜像**：`FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`、
+6. **选图返回后 App 重启 / 闪退（vivo / 部分 ROM）**：
+   `startActivityForResult` + `MethodChannel.Result` 的经典写法依赖 Activity 实例存活；
+   部分 ROM（实测 vivo V1921A / Android 10，从相册返回时会重建 Activity，甚至重建 FlutterEngine）
+   会让旧的 Result 回调失效——表现为「选完图 App 直接回到首页 / 闪退 / 卡住」。
+   **修复**：选图结果不走 MethodChannel 回传，改成「原生侧落盘 → Dart 轮询取走」：
+   - Java：`startPick()` 立即 `result.success(true)`；`onActivityResult` 把图片字节写进
+     `cacheDir/picked/last.bin` + `last.name`；
+   - Dart：`NativeMedia.pickImage()` 启动后每 400ms 调 `consumePendingPick()`，最多等 3 分钟。
+   这样即使 Activity / Engine 被重建，图片也不会丢，App 也不会崩。
+   同时在 `AndroidManifest.xml` 里关闭 Impeller，规避老 Adreno 驱动跨 Activity 返回时的崩溃：
+   ```xml
+   <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false" />
+   ```
+   排查心法：`adb logcat -s InvisMark` 看 `startPick / onActivityResult / pending pick stored` 三条日志，
+   缺哪条就说明断在哪一步。
+7. **vivo 安装要手点**：`adb install` 之后系统会弹「继续安装」，不点会一直卡住（`adb install` 不返回）。
+   自动化脚本里要 `adb shell input tap` 那个按钮，或直接在手机上点。
+8. **国内镜像**：`FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn`、
    `PUB_HOSTED_URL=https://pub.flutter-io.cn`；Gradle 可用腾讯/阿里云镜像。
-7. 构建机容器/沙箱里，`APPDATA`、`TEMP`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`
+9. 构建机容器/沙箱里，`APPDATA`、`TEMP`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`
    都要指到可写目录，否则 Dart/Flutter 工具会因写 `.flutter_tool_state` 失败而退出。
 
 ---

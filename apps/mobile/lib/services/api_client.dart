@@ -94,6 +94,39 @@ class ApiClient {
   /// 占位实现：M3 与服务端 /v1/reports、GET /v1/traces/{id} 的展示路由对齐。
   String traceUrl(String traceId) => _baseUri.resolve('/r/$traceId').toString();
 
+  /// 健康检查（设置页「测试连接」）
+  Future<Map<String, dynamic>> health() async {
+    return _getJson('/healthz');
+  }
+
+  /// 本月用量与配额（首页进度条）
+  Future<Map<String, dynamic>> quota() async {
+    return _getJson('/v1/quota');
+  }
+
+  Future<Map<String, dynamic>> _getJson(String path) async {
+    final Uri uri = _baseUri.resolve(path);
+    try {
+      final HttpClientRequest request = await _http.getUrl(uri).timeout(requestTimeout);
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set('X-Client', clientId);
+      final HttpClientResponse response = await request.close().timeout(requestTimeout);
+      final String raw = await response.transform(utf8.decoder).join().timeout(requestTimeout);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final Object? decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+        return <String, dynamic>{};
+      }
+      throw _errorForStatus(response.statusCode, raw);
+    } on ApiException {
+      rethrow;
+    } catch (error) {
+      throw ApiException.network(error);
+    }
+  }
+
   /// 释放底层连接池。切换 API 地址时必须调用。
   void dispose() => _http.close(force: true);
 
@@ -190,7 +223,9 @@ class ApiClient {
     final Uri uri = _baseUri.resolve(path);
     final HttpClientRequest request = await _http.postUrl(uri).timeout(requestTimeout);
     request.headers.set(HttpHeaders.contentTypeHeader, contentType);
-    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+    // 服务端在 Accept 命中 application/json 且不含 image 时只回 JSON；
+    // 这里用 */* 让它把成图 base64 一起带回来（结果页/相册保存都需要）。
+    request.headers.set(HttpHeaders.acceptHeader, '*/*');
     request.headers.set('X-Client', clientId);
 
     final String? token = authToken;

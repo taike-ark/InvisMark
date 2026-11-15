@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/trace.dart';
+import '../services/native_media.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/glass_container.dart';
@@ -65,18 +66,48 @@ class _ResultScreenState extends State<ResultScreen> {
     if (!mounted || !confirmed) {
       return;
     }
-    // TODO(M3): 接入原生分享插件（share_plus 或平台通道），并优先分享原图。
-    _toast('分享需要原生插件（M3 接入），当前可用「复制溯源链接」');
+    final Uint8List? bytes = widget.result.imageBytes;
+    if (bytes == null) {
+      _toast('没有可分享的成图（服务端未返回图片）');
+      return;
+    }
+    try {
+      await NativeMedia.shareBytes(bytes, '${widget.result.traceId}.png');
+    } on NativeMediaException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      if (!error.cancelled) {
+        _toast(error.message);
+      }
+    }
   }
 
-  void _saveToGallery() {
-    // TODO(M3): 接入相册写入插件（Android MediaStore / iOS PHPhotoLibrary）。
-    _toast('保存到相册需要原生插件（M3 接入）');
+  Future<void> _saveToGallery() async {
+    final Uint8List? bytes = widget.result.imageBytes;
+    if (bytes == null) {
+      _toast('没有可保存的成图（服务端未返回图片）');
+      return;
+    }
+    try {
+      final String path = await NativeMedia.saveToGallery(
+        bytes,
+        '${widget.result.traceId}.png',
+      );
+      if (!mounted) {
+        return;
+      }
+      _toast(path.isEmpty ? '已保存到相册' : '已保存：$path');
+    } on NativeMediaException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _toast(error.message);
+    }
   }
 
   void _openProof() {
-    // TODO(M3): 接入 url_launcher 打开 /v1/reports 生成的证据包。
-    _toast('证据包在浏览器打开（M3 接入 url_launcher）');
+    _toast('证据包下载地址：${AppStateScope.read(context).client.traceUrl(widget.result.traceId)}');
   }
 
   @override
@@ -160,6 +191,7 @@ class _ImageViewer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Uint8List? bytes = result.imageBytes;
     final String? url = result.imageUrl;
 
     return GestureDetector(
@@ -171,28 +203,16 @@ class _ImageViewer extends StatelessWidget {
         child: SizedBox.expand(
           child: ColoredBox(
             color: palette.backgroundGradient.first,
-            child: url == null
-                ? _placeholder()
-                : Image.network(
-                    url,
-                    fit: BoxFit.contain,
-                    errorBuilder: (BuildContext context, Object error, StackTrace? stack) =>
-                        _placeholder(),
-                    loadingBuilder: (
-                      BuildContext context,
-                      Widget child,
-                      ImageChunkEvent? progress,
-                    ) =>
-                        progress == null
-                            ? child
-                            : const Center(
-                                child: SizedBox(
-                                  width: AppLayout.progressRingSize / 2,
-                                  height: AppLayout.progressRingSize / 2,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                              ),
-                  ),
+            child: bytes != null
+                ? Image.memory(bytes, fit: BoxFit.contain, gaplessPlayback: true)
+                : url == null
+                    ? _placeholder()
+                    : Image.network(
+                        url,
+                        fit: BoxFit.contain,
+                        errorBuilder: (BuildContext context, Object error, StackTrace? stack) =>
+                            _placeholder(),
+                      ),
           ),
         ),
       ),
@@ -206,7 +226,7 @@ class _ImageViewer extends StatelessWidget {
             Icon(Icons.image_outlined, size: AppIconSize.xl, color: palette.textTertiary),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '成图预览（演示占位，接入后端后显示 image_url）',
+              '成图预览不可用',
               style: AppType.footnote.copyWith(color: palette.textTertiary),
             ),
           ],

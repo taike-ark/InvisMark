@@ -24,6 +24,13 @@ class _InvisMarkAppState extends State<InvisMarkApp> {
   final AppState _state = AppState();
 
   @override
+  void initState() {
+    super.initState();
+    // 读取本地设置（API 地址等）并拉一次配额；失败不阻塞界面
+    _state.init();
+  }
+
+  @override
   void dispose() {
     _state.dispose();
     super.dispose();
