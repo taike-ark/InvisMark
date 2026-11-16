@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -57,6 +57,8 @@ public sealed class BatchItem
 public sealed class Backend
 {
     private readonly string _cli;
+    private readonly string _dbPath;
+    private readonly string _dataDir;
 
     public Backend()
     {
@@ -75,10 +77,25 @@ public sealed class Backend
             }
         }
         _cli ??= candidates[0];
+
+        // 便携数据目录：跟着程序走，避免受限账户/只读目录写不了 %APPDATA%
+        _dataDir = Path.Combine(baseDir, "data");
+        try
+        {
+            Directory.CreateDirectory(_dataDir);
+        }
+        catch
+        {
+            _dataDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "InvisMark");
+            Directory.CreateDirectory(_dataDir);
+        }
+        _dbPath = Path.Combine(_dataDir, "invismark.db");
     }
 
     public bool Available => File.Exists(_cli);
     public string CliPath => _cli;
+    public string DataDir => _dataDir;
 
     public async Task<(int Code, string Stdout, string Stderr)> RunAsync(params string[] args)
     {
@@ -95,7 +112,15 @@ public sealed class Backend
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
-        foreach (var arg in args)
+        if (args.Length > 0)
+        {
+            psi.ArgumentList.Add(args[0]);
+            psi.ArgumentList.Add("--db");
+            psi.ArgumentList.Add(_dbPath);
+            psi.ArgumentList.Add("--data");
+            psi.ArgumentList.Add(_dataDir);
+        }
+        foreach (var arg in args.Skip(1))
         {
             psi.ArgumentList.Add(arg);
         }
@@ -246,4 +271,5 @@ public sealed class BackendException : Exception
     {
     }
 }
+
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using Microsoft.UI.Xaml;
@@ -67,3 +67,4 @@ public sealed partial class HomePage : Page
         }
     }
 }
+
