@@ -6,6 +6,8 @@
 // 玻璃卡内不再嵌玻璃按钮（避免"玻璃套玻璃"），卡内动作用扁平按钮。
 // 取景区是图片区域：零玻璃、零模糊。
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/trace.dart';
@@ -57,6 +59,25 @@ class _DetectScreenState extends State<DetectScreen> {
     _toast(message);
   }
 
+  /// 直接检测「最近一次嵌入的成图」，不经过选图——用于排除选错图的情况。
+  Future<void> _detectLastEmbedded() async {
+    final AppState state = AppStateScope.read(context);
+    final Uint8List? bytes = state.lastWatermarkedBytes;
+    if (bytes == null) {
+      _toast('还没有嵌入过图片');
+      return;
+    }
+    await runWithProgress<void>(
+      context,
+      '正在检测最近这张成图…',
+      () => state.detectImage(bytes: bytes, filename: 'last-embed.png'),
+    );
+    if (!mounted) {
+      return;
+    }
+    _toast(state.lastTrace?.found == true ? '命中：${state.lastTrace?.customText ?? state.lastTrace?.traceId}' : '未检出');
+  }
+
   void _manualReview() {
     // TODO(M3): 提交人工复核工单（POST /v1/extracts + 附件）。
     _toast('人工复核工单待 M3 接入');
@@ -89,6 +110,8 @@ class _DetectScreenState extends State<DetectScreen> {
         const SizedBox(height: AppSpacing.xl),
         _StatusCard(
           status: state.detectStatus,
+          hasLastEmbed: state.lastWatermarkedBytes != null,
+          onDetectLast: _detectLastEmbedded,
           trace: state.lastTrace,
           errorMessage: state.errorMessage,
           palette: palette,
@@ -248,6 +271,8 @@ class _CornerMarksPainter extends CustomPainter {
 class _StatusCard extends StatelessWidget {
   const _StatusCard({
     required this.status,
+    required this.hasLastEmbed,
+    required this.onDetectLast,
     required this.trace,
     required this.errorMessage,
     required this.palette,
@@ -261,6 +286,8 @@ class _StatusCard extends StatelessWidget {
   });
 
   final DetectStatus status;
+  final bool hasLastEmbed;
+  final VoidCallback onDetectLast;
   final TraceResult? trace;
   final String? errorMessage;
   final AppPalette palette;
@@ -308,7 +335,7 @@ class _StatusCard extends StatelessWidget {
       children: <Widget>[
         Text(
           '支持"被压缩 / 截图 / 裁切"过的图片恢复 trace_id。'
-          '${offline ? '图片只在本机处理，不上传。' : '选图后会直接上传到服务端提取。'}',
+          '${offline ? '图片只在本机处理。要验刚嵌入的成图，请选相册 Pictures/InvisMark 里那张 .png（不是原图）。' : '选图后会直接上传到服务端提取。'}',
           style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -318,6 +345,14 @@ class _StatusCard extends StatelessWidget {
           semanticsLabel: '选择一张图片并检测隐含水印',
           onPressed: onPick,
         ),
+        if (hasLastEmbed) ...<Widget>[
+          const SizedBox(height: AppSpacing.sm),
+          GlassSecondaryButton(
+            label: '检测最近这张成图',
+            semanticsLabel: '不用选图，直接检测最近嵌入的成图',
+            onPressed: onDetectLast,
+          ),
+        ],
       ],
     );
   }
@@ -580,3 +615,4 @@ class _FlatButton extends StatelessWidget {
     );
   }
 }
+

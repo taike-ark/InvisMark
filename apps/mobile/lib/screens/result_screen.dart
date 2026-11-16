@@ -7,6 +7,8 @@
 //   2. 本屏常驻玻璃 3 块：① 顶部返回胶囊 ② 分享风险提示条 ③ 底部抽屉。
 //   3. 点「分享」先弹风险 sheet，文案不承诺"保证可检出"。
 
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,6 +17,7 @@ import '../services/native_media.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/progress_dialog.dart';
 import '../widgets/risk_banner.dart';
 
 class ResultScreen extends StatefulWidget {
@@ -110,6 +113,46 @@ class _ResultScreenState extends State<ResultScreen> {
     _toast('证据包下载地址：${AppStateScope.read(context).client.traceUrl(widget.result.traceId)}');
   }
 
+  /// 用当前成图立刻跑一遍检测：证明「这张图确实能被提取」，
+  /// 也帮用户区分「选错图」和「真的检不出」。
+  Future<void> _verifyEmbedded() async {
+    final AppState state = AppStateScope.read(context);
+    final Uint8List? bytes = state.lastWatermarkedBytes;
+    if (bytes == null) {
+      _toast('没有可验证的成图');
+      return;
+    }
+    final bool ok = await runWithProgress<bool>(
+      context,
+      '正在验证这张成图…',
+      () => state.detectImage(bytes: bytes, filename: 'verify.png'),
+    );
+    if (!mounted) {
+      return;
+    }
+    final TraceResult? trace = state.lastTrace;
+    final bool found = ok && trace != null && trace.found;
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(found ? '验证通过：能提取到水印' : '验证未通过'),
+        content: Text(
+          found
+              ? 'trace_id：${trace!.traceId}\n'
+                  '${trace.customText != null ? '自定义内容：${trace.customText}\n' : ''}'
+                  '置信度：${((trace.confidence ?? 0) * 100).toStringAsFixed(1)}%'
+              : (trace?.message ?? state.errorMessage ?? '这张成图里没能提取到有效追溯码'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('好'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final AppPalette palette = AppPalette.of(context);
@@ -162,6 +205,7 @@ class _ResultScreenState extends State<ResultScreen> {
                             onCopyLink: _copyTraceLink,
                             onCopyTraceId: _copyTraceId,
                             onOpenProof: _openProof,
+                            onVerify: _verifyEmbedded,
                           ),
                         ],
                       ),
@@ -295,6 +339,7 @@ class _ResultDrawer extends StatelessWidget {
     required this.onCopyLink,
     required this.onCopyTraceId,
     required this.onOpenProof,
+    required this.onVerify,
   });
 
   final EmbedResult result;
@@ -304,6 +349,7 @@ class _ResultDrawer extends StatelessWidget {
   final VoidCallback onCopyLink;
   final VoidCallback onCopyTraceId;
   final VoidCallback onOpenProof;
+  final VoidCallback onVerify;
 
   @override
   Widget build(BuildContext context) {
@@ -442,6 +488,29 @@ class _ResultDrawer extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
+          Semantics(
+            button: true,
+            label: '验证这张成图的水印',
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onVerify,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: palette.glassOverlayWhite,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: palette.glassRimOther),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '验证这张图（本机提取一次）',
+                  style: AppType.footnote.copyWith(color: palette.glassTextPrimary),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
           // 证据包入口：蓝紫色（溯源语义），行内不做玻璃嵌套
           Semantics(
             button: true,
@@ -560,3 +629,4 @@ class _ActionTile extends StatelessWidget {
     );
   }
 }
+
