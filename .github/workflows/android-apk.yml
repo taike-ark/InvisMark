@@ -1,8 +1,8 @@
-﻿name: android-apk
+name: android-apk
 
 # 手动触发：在 GitHub 的机器上构建 Android APK 并挂到 Release。
-# 之所以放 CI 里做：某些网络环境下本机访问 uploads.github.com 会被拦，
-# 而 runner 到 Release 的上传是通的。
+# 之所以放 CI：某些网络环境下本机访问 uploads.github.com 会被拦，
+# 而 runner 上传 Release 资产是通的。
 
 on:
   workflow_dispatch:
@@ -46,13 +46,17 @@ jobs:
         working-directory: apps/mobile
         run: flutter build apk --release
 
-      - name: upload to release
+      - name: replace release asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
         run: |
+          set -e
           APK=apps/mobile/build/app/outputs/flutter-apk/app-release.apk
-          ls -l "$APK"
-          gh release upload "$TAG" "$APK#InvisMark-0.1.0-android.apk" --clobber
+          cp "$APK" InvisMark-0.1.0-android.apk
+          sha256sum InvisMark-0.1.0-android.apk | tee apk.sha256
+          for name in app-release.apk InvisMark-0.1.0-android.apk; do
+            gh release delete-asset "$TAG" "$name" --yes || true
+          done
+          gh release upload "$TAG" InvisMark-0.1.0-android.apk --clobber
           gh release view "$TAG" --json assets --jq '.assets[].name'
-
