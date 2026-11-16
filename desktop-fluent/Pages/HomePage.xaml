@@ -1,0 +1,68 @@
+<UserControl x:Class="InvisMark.Desktop.Pages.HomePage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="40,32,40,40" MaxWidth="980" HorizontalAlignment="Left">
+            <TextBlock Text="隐迹 InvisMark" Style="{StaticResource PageTitle}" />
+            <TextBlock Style="{StaticResource PageCaption}" Margin="0,6,0,0"
+                       Text="图片盲水印 · 本地离线 · DWT + DCT + 扩频 + Reed–Solomon 纠错" />
+
+            <Grid Margin="0,28,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource Card}" Grid.Column="0" Margin="0,0,8,0">
+                    <StackPanel>
+                        <TextBlock FontFamily="{StaticResource IconFont}" FontSize="28" Text="&#xE8B9;"
+                                   Foreground="{StaticResource AccentBrush}" />
+                        <TextBlock Text="嵌入水印" FontSize="20" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Style="{StaticResource PageCaption}" Margin="0,6,0,0"
+                                   Text="把可追溯的 24 字节编码嵌进图片，肉眼看不出来，压缩或截图后仍能提取。" />
+                        <Button Content="选择图片并嵌入" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Left" Margin="0,16,0,0" Click="OnEmbedClick" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Grid.Column="1" Margin="8,0,0,0">
+                    <StackPanel>
+                        <TextBlock FontFamily="{StaticResource IconFont}" FontSize="28" Text="&#xE721;"
+                                   Foreground="{StaticResource AccentBrush}" />
+                        <TextBlock Text="检测溯源" FontSize="20" FontWeight="SemiBold" Margin="0,10,0,0" />
+                        <TextBlock Style="{StaticResource PageCaption}" Margin="0,6,0,0"
+                                   Text="从图片里恢复 trace_id，命中后可导出带审计哈希链的证据包。" />
+                        <Button Content="选择图片并检测" Style="{StaticResource SecondaryButton}"
+                                HorizontalAlignment="Left" Margin="0,16,0,0" Click="OnDetectClick" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="运行状态" Style="{StaticResource SectionTitle}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="后端引擎" Style="{StaticResource Caption}" />
+                            <TextBlock x:Name="BackendState" Style="{StaticResource Body}" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="数据目录" Style="{StaticResource Caption}" />
+                            <TextBlock x:Name="DataPath" Style="{StaticResource Body}" Margin="0,4,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Content="校验审计哈希链" Style="{StaticResource SecondaryButton}" Click="OnVerifyClick" />
+                        <Button Content="打开数据目录" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="OnOpenDataClick" />
+                        <TextBlock x:Name="VerifyText" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

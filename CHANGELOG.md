@@ -1,4 +1,4 @@
-# 更新日志
+﻿# 更新日志
 
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)；版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
@@ -31,7 +31,10 @@
 - JPEG 攻击矩阵未实测（解码 JPEG 需 Pillow）
 - 与 wmforge / blind-watermark 不保证位级兼容
 
-### 修复
+- **桌面端界面重构（Fluent / WinUI）**：新增 `desktop-fluent/`（WPF + Fluent：左侧导航、卡片、
+  圆角、深浅色跟随系统）与 `desktop-winui/`（WinUI 3 + Windows App SDK 1.7），后端统一调用
+  `InvisMarkCLI.exe`，覆盖嵌入/检测/批量/证据包/审计链校验。WinUI 3 版本已在 Visual Studio 18
+  环境下用 MSBuild 构建并运行验证。### 修复
 
 - **手机端选图后加不上水印**：系统文件选择器在部分 ROM 上返回的 URI 读不出字节（表现为选完图没反应），
   改为**内置相册**（直接查 MediaStore 列表 + 缩略图 + 按需读原图），首页与检测页共用。
@@ -45,3 +48,4 @@
 - **手机端改为独立离线运行**：水印引擎移植到 Dart（`apps/mobile/lib/core/`），嵌入/提取在本机完成，
   不再依赖服务端；设置页可切回服务端模式。
 - **桌面端数据目录**：SQLite 默认落 `%APPDATA%\InvisMark\`，启动失败弹窗提示，不再因只读 cwd 闪退。
+

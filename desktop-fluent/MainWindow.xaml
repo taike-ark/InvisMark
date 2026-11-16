@@ -1,0 +1,69 @@
+<Window x:Class="InvisMark.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="隐迹 InvisMark"
+        Width="1180" Height="780" MinWidth="960" MinHeight="620"
+        Background="{StaticResource AppBackgroundBrush}"
+        FontFamily="{StaticResource UiFont}"
+        WindowStartupLocation="CenterScreen"
+        TextOptions.TextFormattingMode="Display">
+
+    <WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="44" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0" />
+    </WindowChrome.WindowChrome>
+
+    <Border x:Name="RootBorder" Background="{StaticResource AppBackgroundBrush}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="44" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 自定义标题栏 -->
+            <Grid Grid.Row="0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+                    <Border Width="20" Height="20" CornerRadius="5" Background="{StaticResource AccentBrush}">
+                        <TextBlock Text="&#xE8B9;" FontFamily="{StaticResource IconFont}" FontSize="11"
+                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="隐迹 InvisMark" Margin="10,0,0,0" VerticalAlignment="Center"
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="Minimize_Click" ToolTip="最小化" />
+                    <Button x:Name="MaxButton" Style="{StaticResource CaptionButton}" Content="&#xE922;" Click="Maximize_Click" ToolTip="最大化" />
+                    <Button Style="{StaticResource CloseCaptionButton}" Content="&#xE8BB;" Click="Close_Click" ToolTip="关闭" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 主体：左导航 + 内容 -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="212" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="6,8,6,12">
+                    <RadioButton x:Name="NavHome" Style="{StaticResource NavButton}" Tag="&#xE80F;"
+                                 Content="首页" IsChecked="True" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavEmbed" Style="{StaticResource NavButton}" Tag="&#xE8B9;"
+                                 Content="嵌入水印" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavDetect" Style="{StaticResource NavButton}" Tag="&#xE721;"
+                                 Content="检测溯源" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavBatch" Style="{StaticResource NavButton}" Tag="&#xE8F1;"
+                                 Content="批量处理" Checked="Nav_Checked" />
+                    <RadioButton x:Name="NavSettings" Style="{StaticResource NavButton}" Tag="&#xE713;"
+                                 Content="设置" Checked="Nav_Checked" Margin="6,24,6,2" />
+                </StackPanel>
+
+                <Border Grid.Column="1" Background="{StaticResource CardBackgroundBrush}" CornerRadius="12,0,0,0"
+                        ClipToBounds="True">
+                    <ContentControl x:Name="PageHost" />
+                </Border>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

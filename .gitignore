@@ -1,4 +1,4 @@
-# 隐迹 InvisMark · Python
+﻿# 隐迹 InvisMark · Python
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -34,3 +34,8 @@ apps/mobile/ios/Pods/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# .NET 桌面端构建产物
+desktop-*/bin/
+desktop-*/obj/
+desktop-*/*.user

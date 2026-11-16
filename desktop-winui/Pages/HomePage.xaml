@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="InvisMark.Desktop.Pages.HomePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <ScrollViewer>
+        <StackPanel Padding="{StaticResource ImPagePadding}" Spacing="20" MaxWidth="980" HorizontalAlignment="Left">
+            <StackPanel Spacing="6">
+                <TextBlock Text="隐迹 InvisMark" Style="{StaticResource ImPageTitle}" />
+                <TextBlock Style="{StaticResource ImCaption}"
+                           Text="图片盲水印 · 本地离线 · DWT + DCT + 扩频 + Reed–Solomon 纠错" />
+            </StackPanel>
+
+            <!-- 主行动区：两块大卡片 -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Style="{StaticResource ImCard}" Grid.Column="0">
+                    <StackPanel Spacing="12">
+                        <FontIcon Glyph="&#xE8B9;" FontSize="28" HorizontalAlignment="Left" />
+                        <TextBlock Text="嵌入水印" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Style="{StaticResource ImCaption}"
+                                   Text="把可追溯的 24 字节编码嵌进图片，肉眼看不出，压缩/截图后仍可提取。" />
+                        <Button Content="选择图片并嵌入" Style="{StaticResource AccentButtonStyle}"
+                                HorizontalAlignment="Left" Click="OnEmbedClick" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource ImCard}" Grid.Column="1">
+                    <StackPanel Spacing="12">
+                        <FontIcon Glyph="&#xE721;" FontSize="28" HorizontalAlignment="Left" />
+                        <TextBlock Text="检测溯源" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Style="{StaticResource ImCaption}"
+                                   Text="从图片里恢复 trace_id，命中后可生成带审计链的证据包。" />
+                        <Button Content="选择图片并检测" HorizontalAlignment="Left" Click="OnDetectClick" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 状态卡 -->
+            <Border Style="{StaticResource ImCard}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="运行状态" Style="{StaticResource ImSectionTitle}" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="后端引擎" Style="{StaticResource ImCaption}" />
+                            <TextBlock x:Name="BackendState" Text="检查中…" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="数据目录" Style="{StaticResource ImCaption}" />
+                            <TextBlock x:Name="DataPath" Text="—" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="校验审计哈希链" Click="OnVerifyClick" />
+                        <Button Content="打开数据目录" Click="OnOpenDataClick" />
+                        <TextBlock x:Name="VerifyText" VerticalAlignment="Center" Style="{StaticResource ImCaption}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

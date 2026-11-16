@@ -161,6 +161,27 @@ python -m invismark gui     # Windows/macOS 官方 Python 自带 tkinter
 数据库默认落在 `%APPDATA%\InvisMark\invismark.db`（macOS/Linux 在 `~/.local/share/invismark/`），
 可用环境变量 `INVISMARK_DB` 覆盖——避免从只读目录启动时无法写库。
 
+#### 现代界面（Fluent 桌面版）
+
+`desktop-fluent/` 是重写后的桌面端（WPF + Fluent 设计语言：左侧导航栏、卡片、圆角、
+跟随系统深浅色），后端仍调用同一个 `InvisMarkCLI.exe`，算法与命令行/Python 完全一致。
+
+```powershell
+# 需要 .NET 8 SDK
+dotnet publish desktop-fluent -c Release -r win-x64 --self-contained true -o dist\desktop
+# 把 InvisMarkCLI.exe 放到 dist\desktop\backend\ 下再运行 InvisMarkDesktop.exe
+```
+
+Release 里也提供打包好的 `InvisMark-0.1.0-win64-desktop.zip`（自包含，不需要装 .NET）。
+
+`desktop-winui/` 是同一套界面的 **WinUI 3** 版本（C#/XAML，Windows App SDK 1.7），
+在装了 Visual Studio（含 .NET 桌面开发 + Windows App SDK 组件）的机器上用 MSBuild 构建：
+
+```powershell
+msbuild desktop-winui\InvisMarkDesktop.csproj /restore /t:Publish `
+  /p:Configuration=Release /p:Platform=x64 /p:SelfContained=true /p:PublishDir=dist\winui\
+```
+
 ### 4) 移动端（独立离线运行）
 
 `apps/mobile/` 是 Flutter 双端 App，**默认本地离线模式**：水印嵌入/提取全部在手机上完成，
