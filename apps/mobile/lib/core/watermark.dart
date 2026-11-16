@@ -54,7 +54,7 @@ class ExtractOutcome {
 class WatermarkEngine {
   WatermarkEngine._();
 
-  static const int baseLongEdge = 1600; // 移动端基准：内存与耗时约为 2400 的一半，k≈58 足够
+  static const int baseLongEdge = 2400; // 与 Python 参考实现一致；1600/2000 实测真实照片 k 太小会检不出
   static const int minLongEdge = 800;
   static const double alpha = 0.60;
   static const double minAmplitude = 3.0;
@@ -64,7 +64,7 @@ class WatermarkEngine {
 
   // ── 嵌入 ────────────────────────────────────────────────────
 
-  static EmbedOutcome embed(ImageData source, TraceCode code, int seed) {
+  static EmbedOutcome embed(ImageData source, TraceCode code, int seed, {int? baseLongEdge}) {
     final Stopwatch watch = Stopwatch()..start();
     final int h = source.height;
     final int w = source.width;
@@ -76,7 +76,7 @@ class WatermarkEngine {
     }
 
     final _Ycc ycc = _toYcc(source);
-    final List<int> dims = _baseDims(h, w);
+    final List<int> dims = _baseDims(h, w, baseLongEdge);
     final int baseH = dims[0];
     final int baseW = dims[1];
     final Float32List yBase = _resize(ycc.y, w, h, baseW, baseH);
@@ -189,11 +189,11 @@ class WatermarkEngine {
 
   // ── 提取 ────────────────────────────────────────────────────
 
-  static ExtractOutcome extract(ImageData source, int seed) {
+  static ExtractOutcome extract(ImageData source, int seed, {int? baseLongEdge}) {
     final int h = source.height;
     final int w = source.width;
     final _Ycc ycc = _toYcc(source);
-    final List<int> dims = _baseDims(h, w);
+    final List<int> dims = _baseDims(h, w, baseLongEdge);
     final Float32List yBase = _resize(ycc.y, w, h, dims[1], dims[0]);
     final int level = _autoLevel(dims[0], dims[1]);
     Float32List current = yBase;
@@ -286,8 +286,8 @@ class WatermarkEngine {
 
   static double _clamp(double v, double lo, double hi) => v < lo ? lo : (v > hi ? hi : v);
 
-  static List<int> _baseDims(int h, int w) {
-    final double scale = baseLongEdge / math.max(h, w);
+  static List<int> _baseDims(int h, int w, [int? longEdge]) {
+    final double scale = (longEdge ?? baseLongEdge) / math.max(h, w);
     int nh = math.max(16, (h * scale).round());
     int nw = math.max(16, (w * scale).round());
     const int multiple = 16;

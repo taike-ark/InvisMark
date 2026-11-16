@@ -85,7 +85,7 @@ class LocalEngine {
   /// 解码任意图片为 RGBA，并把长边限制在 [maxInputLongEdge] 内。
   /// 这一步很关键：手机相册常见 4000×3000，全尺寸 RGBA 就要 48MB，
   /// 再叠加水印管线的浮点缓冲会直接 OOM。先降采样能把内存压到 1/4 以下。
-  static const int maxInputLongEdge = 1600;
+  static const int maxInputLongEdge = 2400;
 
   static Future<ImageData> decodeImage(Uint8List bytes) async {
     final Stopwatch watch = Stopwatch()..start();
