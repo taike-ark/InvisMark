@@ -135,6 +135,29 @@ v0.1.0 起，App 默认**不依赖任何服务端**：水印引擎整体移植�
 **跨端注意**：两端算法同构但随机数发生器不同（Python 用 numpy PCG64，Dart 用 splitmix64），
 所以「同一 seed 的码图案」不互认；要跨端互解请统一用一侧实现，或把 seed/图案序列化后共用。
 
+### 内置相册（不要用系统文件选择器）
+
+实机（vivo V1921A / Android 10）验证时踩到一个坑：`ACTION_GET_CONTENT` 打开系统文件选择器后，
+选完图回到 App 拿不到字节——轮询 3 分钟没有结果，表现为「选完图没反应」。
+改为**内置相册**（`MainActivity` 里直接查 MediaStore）：
+
+- `listImages(limit)`：按 `DATE_ADDED DESC` 列最近图片（首次请求 `READ_EXTERNAL_STORAGE` / `READ_MEDIA_IMAGES`）；
+- `thumbnail(id, max)`：按需解码缩略图（`inSampleSize` + JPEG 82），列表不加载原图；
+- `imageBytes(id)`：选中时才读原图字节，交给本地引擎。
+
+UI 在 `lib/widgets/gallery_sheet.dart`，首页与检测页共用；相机仍走 `ACTION_IMAGE_CAPTURE`（不需要读外部 URI）。
+
+### 实机验证记录（2026-11-16）
+
+| 场景 | 结果 |
+|---|---|
+| 设置 → 本地引擎自检 | 通过，PSNR 54.3 dB、SSIM 0.996、k=14、耗时 594 ms |
+| 内置相册选图 → 嵌入 | 通过，PSNR 45.9–46.x dB，结果页正常 |
+| 保存到相册 | 通过，写入 `/sdcard/Pictures/InvisMark/<trace_id>.png` |
+| 检测同一张成图 | 命中，置信 100%，trace_id/资源码/嵌入时间一致 |
+
+截图：`docs/apk-gallery-sheet-screenshot.png`、`docs/apk-embed-result-screenshot.png`、`docs/apk-detect-hit-screenshot.png`。
+
 ### 桌面端数据目录
 
 PyInstaller 单文件默认把 SQLite 写到启动时的工作目录，双击运行时可能是只读目录 → 启动即失败。

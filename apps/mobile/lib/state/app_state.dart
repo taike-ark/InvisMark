@@ -172,6 +172,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  String _friendlyLocalReason(String raw) {
+    final String reason = raw.toLowerCase();
+    if (reason.isEmpty) {
+      return '未在该图片中检出有效追溯码';
+    }
+    if (reason.contains('locator') ||
+        reason.contains('syndrome') ||
+        reason.contains('too many errors') ||
+        reason.contains('chksum') ||
+        reason.contains('crc')) {
+      return '未检出有效追溯码（图片可能被压缩、裁剪或不是本机生成的）';
+    }
+    if (reason.contains('太小') || reason.contains('块数不足')) {
+      return '图片分辨率太小，无法可靠检测';
+    }
+    return '未检出：$raw';
+  }
+
   /// 拉取本月用量；[quiet] 为 true 时不把错误写进界面。
   Future<bool> refreshQuota({bool quiet = false}) async {
     try {
@@ -374,7 +392,7 @@ class AppState extends ChangeNotifier {
           detectStatus = DetectStatus.found;
         } else {
           lastTrace = TraceResult.notFound(
-            message: local.reason.isEmpty ? '未在该图片中检出有效追溯码' : local.reason,
+            message: _friendlyLocalReason(local.reason),
           );
           detectStatus = DetectStatus.notFound;
         }

@@ -14,6 +14,7 @@ import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/glass_button.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/gallery_sheet.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/progress_dialog.dart';
 import 'result_screen.dart';
@@ -167,23 +168,25 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  /// 选图 → 上传嵌入 → 跳结果页；取消或失败都只提示，不改动已有数据。
+  /// 选图 → 本机/服务端嵌入 → 跳结果页；取消或失败都只提示，不改动已有数据。
   Future<void> _handleEmbedTap(BuildContext context) async {
     final AppState state = AppStateScope.read(context);
     final String? source = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: AppBrand.clear,
       isScrollControlled: true,
-      builder: (BuildContext sheetContext) => const _PickerSheet(),
+      builder: (BuildContext sheetContext) => _PickerSheet(offline: state.offlineMode),
     );
     if (!context.mounted || source == null) {
       return;
     }
-    final PickedImage picked;
+    PickedImage? picked;
     try {
-      picked = source == 'camera'
-          ? await NativeMedia.capturePhoto()
-          : await NativeMedia.pickImage();
+      if (source == 'gallery') {
+        picked = await showGallerySheet(context);
+      } else {
+        picked = await NativeMedia.capturePhoto();
+      }
     } on NativeMediaException catch (error) {
       if (!context.mounted) {
         return;
@@ -194,13 +197,14 @@ class HomeScreen extends StatelessWidget {
       }
       return;
     }
-    if (!context.mounted) {
+    if (!context.mounted || picked == null) {
       return;
     }
+    final PickedImage selected = picked;
     final bool ok = await runWithProgress<bool>(
       context,
       '正在嵌入水印（本机处理，约 1–3 秒）…',
-      () => state.embedImage(bytes: picked.bytes, filename: picked.name),
+      () => state.embedImage(bytes: selected.bytes, filename: selected.name),
     );
     if (!context.mounted) {
       return;
@@ -555,9 +559,11 @@ class _ErrorStrip extends StatelessWidget {
   }
 }
 
-/// 选图来源：相册 / 相机（原生通道，无第三方插件）
+/// 选图来源：本机相册 / 相机（原生通道，无第三方插件）
 class _PickerSheet extends StatelessWidget {
-  const _PickerSheet();
+  const _PickerSheet({required this.offline});
+
+  final bool offline;
 
   @override
   Widget build(BuildContext context) {
@@ -586,15 +592,16 @@ class _PickerSheet extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '图片会上传到你在「设置」里配置的 InvisMark 服务端做嵌入，'
-                '处理完返回带水印成图；水印在本机不可见，需用服务端提取。',
+                offline
+                    ? '图片在本机完成加水印，不上传、不联网；首次使用会请求相册读取权限。'
+                    : '图片会先上传到你在「设置」里配置的 InvisMark 服务端，处理完返回成图。',
                 style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
               ),
               const SizedBox(height: AppSpacing.xl),
               GlassPrimaryButton(
-                label: '从相册选择',
+                label: '从本机相册选择',
                 icon: Icons.photo_library_outlined,
-                semanticsLabel: '从系统相册选择图片',
+                semanticsLabel: '从本机相册选择图片',
                 onPressed: () => Navigator.of(context).pop('gallery'),
               ),
               const SizedBox(height: AppSpacing.md),

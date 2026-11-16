@@ -30,10 +30,91 @@ class NativeMediaException implements Exception {
   String toString() => message;
 }
 
+/// 内置相册里的一张图（只含列表页需要的元数据，缩略图按需拉取）
+class GalleryImage {
+  const GalleryImage({
+    required this.id,
+    required this.name,
+    required this.width,
+    required this.height,
+    required this.dateAdded,
+  });
+
+  final String id;
+  final String name;
+  final int width;
+  final int height;
+  final int dateAdded;
+
+  factory GalleryImage.fromMap(Map<Object?, Object?> raw) => GalleryImage(
+        id: '${raw['id']}',
+        name: (raw['name'] as String?) ?? 'image.jpg',
+        width: (raw['width'] as num?)?.toInt() ?? 0,
+        height: (raw['height'] as num?)?.toInt() ?? 0,
+        dateAdded: (raw['dateAdded'] as num?)?.toInt() ?? 0,
+      );
+}
+
 class NativeMedia {
   NativeMedia._();
 
   static const MethodChannel _channel = MethodChannel('invismark/media');
+
+  /// 列出本机最近图片（首次调用会请求相册权限）。
+  static Future<List<GalleryImage>> listImages({int limit = 80}) async {
+    try {
+      final List<Object?>? raw = await _channel.invokeMethod<List<Object?>>(
+        'listImages',
+        <String, Object>{'limit': limit},
+      );
+      if (raw == null) return const <GalleryImage>[];
+      return raw
+          .whereType<Map<Object?, Object?>>()
+          .map(GalleryImage.fromMap)
+          .toList(growable: false);
+    } on PlatformException catch (error) {
+      throw NativeMediaException(error.message ?? '无法读取相册', code: error.code);
+    } on MissingPluginException {
+      throw const NativeMediaException('当前平台暂不支持相册');
+    }
+  }
+
+  /// 取缩略图（JPEG 字节），失败返回 null
+  static Future<Uint8List?> thumbnail(String id, {int max = 220}) async {
+    try {
+      return await _channel.invokeMethod<Uint8List>(
+        'thumbnail',
+        <String, Object>{'id': id, 'max': max},
+      );
+    } on PlatformException {
+      return null;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  /// 按 id 取原图字节
+  static Future<PickedImage> imageBytes(String id) async {
+    try {
+      final Map<Object?, Object?>? raw =
+          await _channel.invokeMethod<Map<Object?, Object?>>(
+        'imageBytes',
+        <String, Object>{'id': id},
+      );
+      final Object? bytes = raw?['bytes'];
+      if (bytes is! Uint8List || bytes.isEmpty) {
+        throw const NativeMediaException('读取图片失败');
+      }
+      final String name = (raw?['name'] as String?)?.trim().isNotEmpty == true
+          ? raw!['name'] as String
+          : 'image.jpg';
+      return PickedImage(bytes: bytes, name: name);
+    } on PlatformException catch (error) {
+      throw NativeMediaException(error.message ?? '读取图片失败', code: error.code);
+    } on MissingPluginException {
+      throw const NativeMediaException('当前平台暂不支持相册');
+    }
+  }
 
   /// 相册选图：先拉起系统相册，再轮询原生侧落盘的结果。
   /// 这样即使 Activity/FlutterEngine 被 ROM 重建，也不会丢图或闪退。

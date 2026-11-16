@@ -12,6 +12,7 @@ import '../models/trace.dart';
 import '../services/native_media.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
+import '../widgets/gallery_sheet.dart';
 import '../widgets/glass_button.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/glass_container.dart';
@@ -35,20 +36,8 @@ class _DetectScreenState extends State<DetectScreen> {
 
   Future<void> _pickAndDetect() async {
     final AppState state = AppStateScope.read(context);
-    late final PickedImage picked;
-    try {
-      picked = await NativeMedia.pickImage();
-    } on NativeMediaException catch (error) {
-      if (!mounted) {
-        return;
-      }
-      if (!error.cancelled) {
-        state.reportError(error.message);
-        _toast(error.message);
-      }
-      return;
-    }
-    if (!mounted) {
+    final PickedImage? picked = await showGallerySheet(context);
+    if (!mounted || picked == null) {
       return;
     }
     await runWithProgress<void>(
@@ -103,6 +92,7 @@ class _DetectScreenState extends State<DetectScreen> {
           trace: state.lastTrace,
           errorMessage: state.errorMessage,
           palette: palette,
+          offline: state.offlineMode,
           showReasons: _showReasons,
           onToggleReasons: () => setState(() => _showReasons = !_showReasons),
           onPick: _pickAndDetect,
@@ -261,6 +251,7 @@ class _StatusCard extends StatelessWidget {
     required this.trace,
     required this.errorMessage,
     required this.palette,
+    required this.offline,
     required this.showReasons,
     required this.onToggleReasons,
     required this.onPick,
@@ -273,6 +264,7 @@ class _StatusCard extends StatelessWidget {
   final TraceResult? trace;
   final String? errorMessage;
   final AppPalette palette;
+  final bool offline;
   final bool showReasons;
   final VoidCallback onToggleReasons;
   final VoidCallback onPick;
@@ -316,7 +308,7 @@ class _StatusCard extends StatelessWidget {
       children: <Widget>[
         Text(
           '支持"被压缩 / 截图 / 裁切"过的图片恢复 trace_id。'
-          '选图后会直接上传到服务端提取（不走演示数据）。',
+          '${offline ? '图片只在本机处理，不上传。' : '选图后会直接上传到服务端提取。'}',
           style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
         ),
         const SizedBox(height: AppSpacing.lg),

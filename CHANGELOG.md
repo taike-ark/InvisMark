@@ -33,6 +33,11 @@
 
 ### 修复
 
+- **手机端选图后加不上水印**：系统文件选择器在部分 ROM 上返回的 URI 读不出字节（表现为选完图没反应），
+  改为**内置相册**（直接查 MediaStore 列表 + 缩略图 + 按需读原图），首页与检测页共用。
+  同时把大图处理的内存压下来（Float32 缓冲、输入长边 1600 预降采样、PNG CRC 流式计算、largeHeap），
+  并补了模态进度提示与「设置 → 本地引擎自检」。实机验证：自检通过、嵌入 PSNR 45.9 dB、
+  保存到相册、检测命中 100%（截图见 `docs/apk-*-screenshot.png`）。
 - **Android 启动崩溃**（`ClassNotFoundException: MainActivity`）：Flutter 3.50 模板的入口是 Kotlin 版
   `MainActivity.kt`，在当前工具链（AGP 9.3.1 + `android.builtInKotlin=false`）下 Kotlin 源未被编译，
   dex 缺少入口类。已改为 Java 版 `MainActivity.java`（javac 始终参与），并在 vivo V1921A / Android 10
