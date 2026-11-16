@@ -1,8 +1,7 @@
 name: android-apk
 
-# 手动触发：在 GitHub 的机器上构建 Android APK，替换 Release 资产并重算 SHA256SUMS。
-# 之所以放 CI：某些网络环境下本机访问 uploads.github.com 会被拦，
-# 而 runner 上传 Release 资产是通的。
+# 手动触发：在 GitHub 的机器上构建 Android APK，替换 Release 资产并更新 SHA256SUMS 里的 APK 行。
+# 之所以放 CI：某些网络环境下本机访问 uploads.github.com 会被拦，而 runner 上传是通的。
 
 on:
   workflow_dispatch:
@@ -59,16 +58,19 @@ jobs:
           done
           gh release upload "$TAG" InvisMark-0.1.0-android.apk --clobber
 
-      - name: refresh sha256sums
+      - name: update sha256sums (apk line)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ inputs.tag }}
         run: |
           set -e
-          mkdir -p /tmp/assets && cd /tmp/assets
-          gh release download "$TAG" -D . --skip-existing
-          rm -f SHA256SUMS.txt
-          sha256sum * > SHA256SUMS.txt
+          APK_SHA=$(sha256sum InvisMark-0.1.0-android.apk | awk '{print $1}')
+          echo "apk sha: $APK_SHA"
+          gh release download "$TAG" -p SHA256SUMS.txt -O SHA256SUMS.txt --clobber || true
+          touch SHA256SUMS.txt
+          grep -v '  InvisMark-0.1.0-android.apk$' SHA256SUMS.txt > SHA256SUMS.new || true
+          echo "$APK_SHA  InvisMark-0.1.0-android.apk" >> SHA256SUMS.new
+          sort -k2 SHA256SUMS.new > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release delete-asset "$TAG" SHA256SUMS.txt --yes || true
           gh release upload "$TAG" SHA256SUMS.txt --clobber
