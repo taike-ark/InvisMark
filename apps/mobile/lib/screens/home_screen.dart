@@ -15,6 +15,7 @@ import '../theme/tokens.dart';
 import '../widgets/glass_button.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/progress_dialog.dart';
 import 'result_screen.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -196,8 +197,11 @@ class HomeScreen extends StatelessWidget {
     if (!context.mounted) {
       return;
     }
-    _toast(context, '已选择 ${picked.name}（${(picked.sizeInBytes / 1024).toStringAsFixed(0)} KB），正在嵌入…');
-    final bool ok = await state.embedImage(bytes: picked.bytes, filename: picked.name);
+    final bool ok = await runWithProgress<bool>(
+      context,
+      '正在嵌入水印（本机处理，约 1–3 秒）…',
+      () => state.embedImage(bytes: picked.bytes, filename: picked.name),
+    );
     if (!context.mounted) {
       return;
     }

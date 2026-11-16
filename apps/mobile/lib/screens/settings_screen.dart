@@ -7,9 +7,11 @@
 
 import 'package:flutter/material.dart';
 
+import '../services/local_engine.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/progress_dialog.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -37,6 +39,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _toast(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message), duration: AppMotion.toast),
+    );
+  }
+
+  Future<void> _runSelfTest() async {
+    final String result = await runWithProgress<String>(
+      context,
+      '正在自检本地引擎…',
+      LocalEngine.selfTest,
+    );
+    if (!mounted) {
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('本地引擎自检'),
+        content: Text(result),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('好'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -121,6 +147,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   '首次使用会生成一个本地种子（存本机），换机或清数据后旧图将无法用本机提取。',
                   style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton(
+                    onPressed: _runSelfTest,
+                    child: const Text('本地引擎自检（约 10 秒）'),
+                  ),
                 ),
               ] else ...<Widget>[
                 _SectionDivider(palette: palette),

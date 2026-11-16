@@ -54,7 +54,7 @@ class ExtractOutcome {
 class WatermarkEngine {
   WatermarkEngine._();
 
-  static const int baseLongEdge = 2400;
+  static const int baseLongEdge = 1600; // 移动端基准：内存与耗时约为 2400 的一半，k≈58 足够
   static const int minLongEdge = 800;
   static const double alpha = 0.60;
   static const double minAmplitude = 3.0;
@@ -79,11 +79,11 @@ class WatermarkEngine {
     final List<int> dims = _baseDims(h, w);
     final int baseH = dims[0];
     final int baseW = dims[1];
-    final Float64List yBase = _resize(ycc.y, w, h, baseW, baseH);
+    final Float32List yBase = _resize(ycc.y, w, h, baseW, baseH);
 
     final int level = _autoLevel(baseH, baseW);
-    final List<Float64List> bands = <Float64List>[];
-    Float64List ll = yBase;
+    final List<Float32List> bands = <Float32List>[];
+    Float32List ll = yBase;
     int cw = baseW;
     int ch = baseH;
     for (int i = 0; i < level; i++) {
@@ -119,8 +119,8 @@ class WatermarkEngine {
     }
     final Int8List signs = _spreadSigns(seed, used, k);
 
-    final Float64List dct = _dctMatrix();
-    final Float64List coef = Float64List(16);
+    final Float32List dct = _dctMatrix();
+    final Float32List coef = Float32List(16);
     final double floorAmp = minAmplitude * math.pow(2.5, level - 1).toDouble();
     final double capAmp = maxAmplitude * math.pow(2.0, level - 1).toDouble();
     int blocksUsed = 0;
@@ -146,7 +146,7 @@ class WatermarkEngine {
       _blockIdct(ll, coef, base, cw, dct);
     }
 
-    Float64List restored = ll;
+    Float32List restored = ll;
     int rw = cw;
     int rh = ch;
     for (int i = level - 1; i >= 0; i--) {
@@ -156,11 +156,11 @@ class WatermarkEngine {
       rh *= 2;
     }
 
-    final Float64List diff = Float64List(baseW * baseH);
+    final Float32List diff = Float32List(baseW * baseH);
     for (int i = 0; i < diff.length; i++) {
       diff[i] = restored[i] - yBase[i];
     }
-    final Float64List diffFull = _resize(diff, baseW, baseH, w, h);
+    final Float32List diffFull = _resize(diff, baseW, baseH, w, h);
     final Uint8List out = Uint8List(w * h * 4);
     for (int i = 0, p = 0; i < w * h; i++, p += 4) {
       final double y = _clamp(ycc.y[i] + diffFull[i], 0, 255);
@@ -194,9 +194,9 @@ class WatermarkEngine {
     final int w = source.width;
     final _Ycc ycc = _toYcc(source);
     final List<int> dims = _baseDims(h, w);
-    final Float64List yBase = _resize(ycc.y, w, h, dims[1], dims[0]);
+    final Float32List yBase = _resize(ycc.y, w, h, dims[1], dims[0]);
     final int level = _autoLevel(dims[0], dims[1]);
-    Float64List current = yBase;
+    Float32List current = yBase;
     int cw = dims[1];
     int ch = dims[0];
     for (int i = 0; i < level; i++) {
@@ -212,9 +212,9 @@ class WatermarkEngine {
       return const ExtractOutcome(found: false, reason: '图片过小，块数不足');
     }
     final int used = bitsPerCodeword * k;
-    final Float64List coeffs = Float64List(used);
-    final Float64List dct = _dctMatrix();
-    final Float64List coef = Float64List(16);
+    final Float32List coeffs = Float32List(used);
+    final Float32List dct = _dctMatrix();
+    final Float32List coef = Float32List(16);
     for (int bi = 0; bi < used; bi++) {
       final int by = bi ~/ bw;
       final int bx = bi % bw;
@@ -228,7 +228,7 @@ class WatermarkEngine {
       sum += coeffs[i];
     }
     final double globalMean = sum / used;
-    final Float64List bitSum = Float64List(bitsPerCodeword);
+    final Float32List bitSum = Float32List(bitsPerCodeword);
     final Int32List bitCount = Int32List(bitsPerCodeword);
     for (int bi = 0; bi < used; bi++) {
       final int b = bi % bitsPerCodeword;
@@ -241,7 +241,7 @@ class WatermarkEngine {
       }
     }
     final Int8List signs = _spreadSigns(seed, used, k);
-    final Float64List score = Float64List(bitsPerCodeword);
+    final Float32List score = Float32List(bitsPerCodeword);
     for (int bi = 0; bi < used; bi++) {
       final int b = bi % bitsPerCodeword;
       score[b] += (coeffs[bi] - globalMean - bitSum[b]) * signs[bi];
@@ -304,8 +304,8 @@ class WatermarkEngine {
     return 1;
   }
 
-  static Float64List _dctMatrix() {
-    final Float64List m = Float64List(16);
+  static Float32List _dctMatrix() {
+    final Float32List m = Float32List(16);
     for (int k = 0; k < 4; k++) {
       final double ck = k == 0 ? math.sqrt(0.25) : math.sqrt(0.5);
       for (int x = 0; x < 4; x++) {
@@ -315,7 +315,7 @@ class WatermarkEngine {
     return m;
   }
 
-  static void _blockDctInto(Float64List plane, int base, int width, Float64List d, Float64List out) {
+  static void _blockDctInto(Float32List plane, int base, int width, Float32List d, Float32List out) {
     for (int u = 0; u < 4; u++) {
       for (int v = 0; v < 4; v++) {
         double s = 0;
@@ -330,7 +330,7 @@ class WatermarkEngine {
     }
   }
 
-  static void _blockIdct(Float64List plane, Float64List coef, int base, int width, Float64List d) {
+  static void _blockIdct(Float32List plane, Float32List coef, int base, int width, Float32List d) {
     for (int y = 0; y < 4; y++) {
       final int row = base + y * width;
       for (int x = 0; x < 4; x++) {
@@ -345,9 +345,9 @@ class WatermarkEngine {
     }
   }
 
-  static Float64List _resize(Float64List src, int sw, int sh, int dw, int dh) {
-    if (sw == dw && sh == dh) return Float64List.fromList(src);
-    final Float64List out = Float64List(dw * dh);
+  static Float32List _resize(Float32List src, int sw, int sh, int dw, int dh) {
+    if (sw == dw && sh == dh) return Float32List.fromList(src);
+    final Float32List out = Float32List(dw * dh);
     final double scaleX = sw / dw;
     final double scaleY = sh / dh;
     for (int y = 0; y < dh; y++) {
@@ -370,13 +370,13 @@ class WatermarkEngine {
     return out;
   }
 
-  static _Bands _haarDwt(Float64List y, int w, int h) {
+  static _Bands _haarDwt(Float32List y, int w, int h) {
     final int w2 = w ~/ 2;
     final int h2 = h ~/ 2;
-    final Float64List ll = Float64List(w2 * h2);
-    final Float64List hl = Float64List(w2 * h2);
-    final Float64List lh = Float64List(w2 * h2);
-    final Float64List hh = Float64List(w2 * h2);
+    final Float32List ll = Float32List(w2 * h2);
+    final Float32List hl = Float32List(w2 * h2);
+    final Float32List lh = Float32List(w2 * h2);
+    final Float32List hh = Float32List(w2 * h2);
     for (int y2 = 0; y2 < h2; y2++) {
       final int r0 = (y2 * 2) * w;
       final int r1 = (y2 * 2 + 1) * w;
@@ -396,16 +396,16 @@ class WatermarkEngine {
     return _Bands(ll: ll, hl: hl, lh: lh, hh: hh, width: w2, height: h2);
   }
 
-  static Float64List _haarIdwt(
-    Float64List ll,
-    Float64List hl,
-    Float64List lh,
-    Float64List hh,
+  static Float32List _haarIdwt(
+    Float32List ll,
+    Float32List hl,
+    Float32List lh,
+    Float32List hh,
     int w2,
     int h2,
   ) {
     final int w = w2 * 2;
-    final Float64List out = Float64List(w * h2 * 2);
+    final Float32List out = Float32List(w * h2 * 2);
     for (int y2 = 0; y2 < h2; y2++) {
       final int r0 = (y2 * 2) * w;
       final int r1 = (y2 * 2 + 1) * w;
@@ -471,9 +471,9 @@ class WatermarkEngine {
 
   static _Ycc _toYcc(ImageData image) {
     final int n = image.width * image.height;
-    final Float64List y = Float64List(n);
-    final Float64List cb = Float64List(n);
-    final Float64List cr = Float64List(n);
+    final Float32List y = Float32List(n);
+    final Float32List cb = Float32List(n);
+    final Float32List cr = Float32List(n);
     final Uint8List rgba = image.rgba;
     for (int i = 0, p = 0; i < n; i++, p += 4) {
       final double r = rgba[p].toDouble();
@@ -499,14 +499,14 @@ class WatermarkEngine {
     return 10 * (math.log(255 * 255 / mse) / math.ln10);
   }
 
-  static double _ssim(Float64List ya, ImageData b, int w, int h) {
+  static double _ssim(Float32List ya, ImageData b, int w, int h) {
     const int win = 8;
     final int bw = w ~/ win;
     final int bh = h ~/ win;
     if (bw == 0 || bh == 0) return 1;
     const double c1 = 6.5025;
     const double c2 = 58.5225;
-    final Float64List yb = Float64List(w * h);
+    final Float32List yb = Float32List(w * h);
     for (int i = 0, p = 0; i < w * h; i++, p += 4) {
       yb[i] = 0.299 * b.rgba[p] + 0.587 * b.rgba[p + 1] + 0.114 * b.rgba[p + 2];
     }
@@ -553,9 +553,9 @@ class WatermarkEngine {
 
 class _Ycc {
   const _Ycc({required this.y, required this.cb, required this.cr});
-  final Float64List y;
-  final Float64List cb;
-  final Float64List cr;
+  final Float32List y;
+  final Float32List cb;
+  final Float32List cr;
 }
 
 class _Bands {
@@ -567,10 +567,10 @@ class _Bands {
     required this.width,
     required this.height,
   });
-  final Float64List ll;
-  final Float64List hl;
-  final Float64List lh;
-  final Float64List hh;
+  final Float32List ll;
+  final Float32List hl;
+  final Float32List lh;
+  final Float32List hh;
   final int width;
   final int height;
 }

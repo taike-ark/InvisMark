@@ -15,6 +15,7 @@ import '../theme/tokens.dart';
 import '../widgets/glass_button.dart';
 import '../widgets/glass_card.dart';
 import '../widgets/glass_container.dart';
+import '../widgets/progress_dialog.dart';
 
 class DetectScreen extends StatefulWidget {
   const DetectScreen({super.key});
@@ -34,7 +35,7 @@ class _DetectScreenState extends State<DetectScreen> {
 
   Future<void> _pickAndDetect() async {
     final AppState state = AppStateScope.read(context);
-    PickedImage? picked;
+    late final PickedImage picked;
     try {
       picked = await NativeMedia.pickImage();
     } on NativeMediaException catch (error) {
@@ -50,7 +51,11 @@ class _DetectScreenState extends State<DetectScreen> {
     if (!mounted) {
       return;
     }
-    await state.detectImage(bytes: picked.bytes, filename: picked.name);
+    await runWithProgress<void>(
+      context,
+      '正在检测（本机处理，约 1–2 秒）…',
+      () => state.detectImage(bytes: picked.bytes, filename: picked.name),
+    );
     if (!mounted) {
       return;
     }

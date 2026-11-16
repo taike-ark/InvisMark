@@ -228,7 +228,7 @@ class PngCodec {
     builder.add(len.buffer.asUint8List());
     builder.add(typeBytes);
     builder.add(body);
-    final int crc = TraceCrc.crc32(<int>[...typeBytes, ...body]);
+    final int crc = TraceCrc.crc32Parts(<List<int>>[typeBytes, body]);
     final ByteData crcData = ByteData(4)..setUint32(0, crc);
     builder.add(crcData.buffer.asUint8List());
     return builder.takeBytes();
@@ -253,10 +253,15 @@ class TraceCrc {
     return table;
   }
 
-  static int crc32(List<int> data) {
+  static int crc32(List<int> data) => crc32Parts(<List<int>>[data]);
+
+  /// 分段计算 CRC32：避免把几 MB 的 IDAT 展开成 List<int> 造成内存爆炸
+  static int crc32Parts(List<List<int>> parts) {
     int crc = 0xFFFFFFFF;
-    for (final int b in data) {
-      crc = _table[(crc ^ b) & 0xFF] ^ (crc >> 8);
+    for (final List<int> part in parts) {
+      for (final int b in part) {
+        crc = _table[(crc ^ b) & 0xFF] ^ (crc >> 8);
+      }
     }
     return (crc ^ 0xFFFFFFFF) & 0xFFFFFFFF;
   }
