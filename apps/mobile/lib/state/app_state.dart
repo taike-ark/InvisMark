@@ -296,6 +296,7 @@ class AppState extends ChangeNotifier {
     required Uint8List bytes,
     required String filename,
     String? resourceCode,
+    String? customText,
     String? strength,
   }) async {
     if (embedding) {
@@ -308,13 +309,14 @@ class AppState extends ChangeNotifier {
 
     try {
       if (offlineMode) {
-        final LocalEmbedResult local = await LocalEngine.embed(bytes, resourceCode: resourceCode);
+        final LocalEmbedResult local = await LocalEngine.embed(bytes, resourceCode: resourceCode, customText: customText);
         final EmbedResult result = EmbedResult(
           assetId: 'local',
           traceId: local.traceId,
           quality: EmbedQuality(psnr: local.psnr, ssim: local.ssim),
           embeddedAt: DateTime.now().toUtc(),
           imageBytes: local.pngBytes,
+          customText: local.customText,
         );
         lastEmbed = result;
         lastWatermarkedBytes = result.imageBytes;
@@ -333,6 +335,7 @@ class AppState extends ChangeNotifier {
         filename: filename,
         resourceCode: resourceCode,
         strength: strength,
+        customText: customText,
       );
       lastEmbed = result;
       lastWatermarkedBytes = result.imageBytes;
@@ -385,9 +388,12 @@ class AppState extends ChangeNotifier {
             found: true,
             traceId: trace.hex,
             resourceCode: trace.resourceCode,
+            customText: trace.customText,
             embeddedAt: trace.embeddedAt,
             confidence: local.confidence,
-            message: '本地引擎检出（用户索引 ${trace.userIndex}）',
+            message: trace.isCustom
+                ? '本机自定义内容：${trace.customText}'
+                : '本地引擎检出（用户索引 ${trace.userIndex}）',
           );
           detectStatus = DetectStatus.found;
         } else {
@@ -476,3 +482,5 @@ class AppStateScope extends InheritedNotifier<AppState> {
     return scope!.notifier!;
   }
 }
+
+

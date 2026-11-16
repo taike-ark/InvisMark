@@ -6,6 +6,8 @@
 //   ① 顶部标题胶囊   ② 主嵌入卡（本屏唯一焦点玻璃）   ③ 悬浮 TabBar（在 app.dart）
 // 因此「检测入口」「配额」「最近任务列表」都放在非玻璃区域，避免超预算。
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../models/trace.dart';
@@ -171,15 +173,16 @@ class HomeScreen extends StatelessWidget {
   /// 选图 → 本机/服务端嵌入 → 跳结果页；取消或失败都只提示，不改动已有数据。
   Future<void> _handleEmbedTap(BuildContext context) async {
     final AppState state = AppStateScope.read(context);
-    final String? source = await showModalBottomSheet<String>(
+    final _PickRequest? request = await showModalBottomSheet<_PickRequest>(
       context: context,
       backgroundColor: AppBrand.clear,
       isScrollControlled: true,
       builder: (BuildContext sheetContext) => _PickerSheet(offline: state.offlineMode),
     );
-    if (!context.mounted || source == null) {
+    if (!context.mounted || request == null) {
       return;
     }
+    final String source = request.source;
     PickedImage? picked;
     try {
       if (source == 'gallery') {
@@ -204,7 +207,11 @@ class HomeScreen extends StatelessWidget {
     final bool ok = await runWithProgress<bool>(
       context,
       '正在嵌入水印（本机处理，约 1–3 秒）…',
-      () => state.embedImage(bytes: selected.bytes, filename: selected.name),
+      () => state.embedImage(
+        bytes: selected.bytes,
+        filename: selected.name,
+        customText: request.customText,
+      ),
     );
     if (!context.mounted) {
       return;
@@ -560,10 +567,44 @@ class _ErrorStrip extends StatelessWidget {
 }
 
 /// 选图来源：本机相册 / 相机（原生通道，无第三方插件）
-class _PickerSheet extends StatelessWidget {
+class _PickRequest {
+  const _PickRequest(this.source, this.customText);
+
+  final String source;
+  final String? customText;
+}
+
+class _PickerSheet extends StatefulWidget {
   const _PickerSheet({required this.offline});
 
   final bool offline;
+
+  @override
+  State<_PickerSheet> createState() => _PickerSheetState();
+}
+
+class _PickerSheetState extends State<_PickerSheet> {
+  static const int _maxBytes = 13;
+
+  final TextEditingController _text = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  int get _byteLength => utf8.encode(_text.text.trim()).length;
+
+  void _choose(String source) {
+    final String value = _text.text.trim();
+    if (value.isNotEmpty && _byteLength > _maxBytes) {
+      setState(() => _error = '自定义内容最多 $_maxBytes 字节（约 4 个汉字），当前 $_byteLength 字节');
+      return;
+    }
+    Navigator.of(context).pop(_PickRequest(source, value.isEmpty ? null : value));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -592,9 +633,42 @@ class _PickerSheet extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                offline
+                widget.offline
                     ? '图片在本机完成加水印，不上传、不联网；首次使用会请求相册读取权限。'
                     : '图片会先上传到你在「设置」里配置的 InvisMark 服务端，处理完返回成图。',
+                style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Text(
+                '自定义水印内容（可选）',
+                style: AppType.footnote.copyWith(color: palette.textPrimary),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              TextField(
+                controller: _text,
+                maxLength: _maxBytes,
+                style: AppType.footnote.copyWith(color: palette.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: '例如：张三-内部 / 合同A / 2026',
+                  isDense: true,
+                  counterText: '',
+                ),
+                onChanged: (_) {
+                  if (_error != null) {
+                    setState(() => _error = null);
+                  }
+                },
+              ),
+              if (_error != null) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  _error!,
+                  style: AppType.footnote.copyWith(color: AppBrand.danger),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '留空则写入标准追溯码（资源码 + 时间）；填入后写入你自定义的内容，提取时原样显示。',
                 style: AppType.footnote.copyWith(color: palette.glassTextSecondary),
               ),
               const SizedBox(height: AppSpacing.xl),
@@ -602,13 +676,13 @@ class _PickerSheet extends StatelessWidget {
                 label: '从本机相册选择',
                 icon: Icons.photo_library_outlined,
                 semanticsLabel: '从本机相册选择图片',
-                onPressed: () => Navigator.of(context).pop('gallery'),
+                onPressed: () => _choose('gallery'),
               ),
               const SizedBox(height: AppSpacing.md),
               GlassSecondaryButton(
                 label: '现场拍摄',
                 semanticsLabel: '打开相机拍摄照片',
-                onPressed: () => Navigator.of(context).pop('camera'),
+                onPressed: () => _choose('camera'),
               ),
               const SizedBox(height: AppSpacing.sm),
               TextButton(

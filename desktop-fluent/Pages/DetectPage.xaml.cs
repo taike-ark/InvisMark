@@ -78,7 +78,8 @@ public partial class DetectPage : UserControl
                 ResultIcon.Foreground = (Brush)FindResource("SuccessBrush");
                 ResultTitle.Text = "命中 · 可追溯";
                 TraceText.Text = info.TraceId;
-                ResourceText.Text = info.ResourceCode;
+                ResourceLabel.Text = string.IsNullOrEmpty(info.CustomText) ? "资源编码" : "自定义内容";
+                ResourceText.Text = string.IsNullOrEmpty(info.CustomText) ? info.ResourceCode : info.CustomText!;
                 TimeText.Text = info.EmbeddedAt.Replace("T", " ").Replace("+00:00", " UTC");
                 ConfidenceText.Text = $"{info.Confidence * 100:F1}%";
                 StatsText.Text = $"{info.CorrectedBytes} 字节 / {info.ElapsedMs:F0} ms";
@@ -91,6 +92,7 @@ public partial class DetectPage : UserControl
                 ResultIcon.Foreground = (Brush)FindResource("DangerBrush");
                 ResultTitle.Text = "未检出有效追溯码";
                 TraceText.Text = "—";
+                ResourceLabel.Text = "资源编码";
                 ResourceText.Text = "—";
                 TimeText.Text = "—";
                 ConfidenceText.Text = "—";
@@ -167,4 +169,5 @@ public partial class DetectPage : UserControl
         }
     }
 }
+
 

@@ -367,7 +367,10 @@ class _StatusCard extends StatelessWidget {
           value: user == null ? '—' : '${user.displayName}（${user.userId}）',
           palette: palette,
         ),
-        _KeyValueRow(label: '资源编码', value: found.resourceCode ?? '—', palette: palette, mono: true),
+        if (found.customText != null && found.customText!.isNotEmpty)
+          _KeyValueRow(label: '自定义内容', value: found.customText!, palette: palette)
+        else
+          _KeyValueRow(label: '资源编码', value: found.resourceCode ?? '—', palette: palette, mono: true),
         _KeyValueRow(label: '嵌入时间', value: formatTimestamp(found.embeddedAt), palette: palette),
         const SizedBox(height: AppSpacing.lg),
         GlassPrimaryButton(

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -14,6 +14,7 @@ public sealed class EmbedInfo
     public string AssetId { get; init; } = "";
     public string TraceId { get; init; } = "";
     public string ResourceCode { get; init; } = "";
+    public string? CustomText { get; init; }
     public int UserIndex { get; init; }
     public double Psnr { get; init; }
     public double Ssim { get; init; }
@@ -29,6 +30,7 @@ public sealed class ExtractInfo
     public bool Found { get; init; }
     public string TraceId { get; init; } = "";
     public string ResourceCode { get; init; } = "";
+    public string? CustomText { get; init; }
     public int UserIndex { get; init; }
     public string EmbeddedAt { get; init; } = "";
     public double Confidence { get; init; }
@@ -105,10 +107,10 @@ public sealed class Backend
         return (process.ExitCode, stdout, stderr);
     }
 
-    public async Task<EmbedInfo> EmbedAsync(string input, string output, string resourceCode, string user = "desktop")
+    public async Task<EmbedInfo> EmbedAsync(string input, string output, string resourceCode, string customText = "", string user = "desktop")
     {
         var (code, stdout, stderr) = await RunAsync("embed", "--in", input, "--out", output,
-            "--resource", resourceCode ?? "", "--user", user).ConfigureAwait(false);
+            "--resource", resourceCode ?? "", "--text", customText ?? "", "--user", user).ConfigureAwait(false);
         if (code != 0)
         {
             throw new BackendException(Friendly(stderr, "嵌入失败"));
@@ -130,6 +132,7 @@ public sealed class Backend
             AssetId = ReadStr(root, "asset_id"),
             TraceId = ReadStr(root, "trace_id"),
             ResourceCode = ReadStr(root, "resource_code"),
+            CustomText = ReadStr(root, "custom_text") is { Length: > 0 } ct ? ct : null,
             UserIndex = ReadInt(root, "user_index"),
             Psnr = ReadDouble(quality, "psnr"),
             Ssim = ReadDouble(quality, "ssim"),
@@ -164,6 +167,7 @@ public sealed class Backend
             Found = ReadBool("found"),
             TraceId = ReadStr("trace_id"),
             ResourceCode = ReadStr("resource_code"),
+            CustomText = ReadStr("custom_text") is { Length: > 0 } ct2 ? ct2 : null,
             UserIndex = ReadInt("user_index"),
             EmbeddedAt = ReadStr("embedded_at"),
             Confidence = ReadDouble("confidence"),
@@ -242,3 +246,4 @@ public sealed class BackendException : Exception
     {
     }
 }
+

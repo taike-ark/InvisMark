@@ -108,14 +108,20 @@ class ApiApp:
             image_bytes = files["file"]
             user = fields.get("user", query.get("user", "anonymous"))
             resource = fields.get("resource_code", query.get("resource_code", ""))
+            custom_text = fields.get("custom_text", query.get("custom_text", ""))
         else:
             image_bytes = body
             user = query.get("user", "anonymous")
             resource = query.get("resource_code", "")
+            custom_text = query.get("custom_text", "")
         if not image_bytes:
             raise ServiceError("empty image body", code="bad_request")
         outcome = self.service.embed(
-            image_bytes, tenant=query.get("tenant"), user=user, resource_code=resource
+            image_bytes,
+            tenant=query.get("tenant"),
+            user=user,
+            resource_code=resource,
+            custom_text=custom_text,
         )
         accept = headers.get("accept", "")
         if "application/json" in accept and "image" not in accept:

@@ -1,4 +1,4 @@
-# 隐迹 InvisMark · SPDX-License-Identifier: Apache-2.0
+﻿# 隐迹 InvisMark · SPDX-License-Identifier: Apache-2.0
 """24 字节追溯码（trace_id）的编码与解析。
 
 字节布局（共 24 B，网络序）::
@@ -21,14 +21,18 @@ import zlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-VERSION = 1
+VERSION = 1          # 标准追溯码（资源码 + 用户索引 + 时间 + 序号）
+VERSION_CUSTOM = 2   # 自定义文本（最多 12 字节 UTF-8 + 时间 + 序号）
 EPOCH = datetime(2020, 1, 1, tzinfo=timezone.utc)
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 CODE_LEN = 6
 MAX_USER_INDEX = 0xFFFF
 MAX_SERIAL = 0xFFFFFFFF
+MAX_SERIAL_CUSTOM = 0xFFFF  # v2 里序号只有 2 字节
 MAX_MINUTE = 0xFFFFFFFF
-PAYLOAD_LEN = 15  # 参与 CRC 的字节数
+PAYLOAD_LEN = 15  # v1 参与 CRC 的字节数
+CUSTOM_TEXT_LEN = 13  # v2 自定义文本容量（UTF-8 字节，≈4 个汉字 + 1 字符）
+CUSTOM_PAYLOAD_LEN = 20  # v2 参与 CRC 的字节数
 TRACE_LEN = 24
 
 
@@ -65,6 +69,22 @@ def _minute_of(dt: datetime) -> int:
     return int(delta.total_seconds()) // 60
 
 
+def encode_custom_text(text: str) -> bytes:
+    """把用户自填文本编码为 v2 载荷；容量 12 字节 UTF-8（≈4 个汉字）。"""
+    if text is None:
+        raise TraceFormatError("custom text is required")
+    raw = str(text).strip().encode("utf-8")
+    if not raw:
+        raise TraceFormatError("custom text must not be empty")
+    if len(raw) > CUSTOM_TEXT_LEN:
+        raise TraceFormatError(
+            f"custom text too long: {len(raw)} bytes UTF-8 > {CUSTOM_TEXT_LEN}"
+        )
+    if b"\x00" in raw:
+        raise TraceFormatError("custom text must not contain NUL")
+    return raw
+
+
 def _datetime_of(minute: int) -> datetime:
     from datetime import timedelta
 
@@ -73,13 +93,19 @@ def _datetime_of(minute: int) -> datetime:
 
 @dataclass(frozen=True)
 class TraceCode:
-    """一条 24 字节追溯码。"""
+    """一条 24 字节追溯码。
+
+    两种形态共用同一 24 字节容器：
+    - v1 标准码：资源码 + 用户索引 + 时间 + 序号（服务端/私有化部署用）
+    - v2 自定义码：用户自填文本（≤12 字节 UTF-8）+ 时间 + 序号（不依赖服务端）
+    """
 
     resource_code: str
     user_index: int
     embedded_at: datetime
     serial: int = 0
     version: int = VERSION
+    custom_text: str | None = None
 
     # ---- 构造 ----
     @classmethod
@@ -103,8 +129,72 @@ class TraceCode:
             serial=int(serial),
         )
 
+    # ---- 自定义文本（v2）----
+    @classmethod
+    def new_custom(
+        cls,
+        text: str,
+        embedded_at: datetime | None = None,
+        serial: int = 0,
+    ) -> "TraceCode":
+        """构造 v2 自定义文本追溯码（不依赖服务端资源码/用户索引）。"""
+        raw = encode_custom_text(text)
+        if not (0 <= int(serial) <= MAX_SERIAL_CUSTOM):
+            raise TraceFormatError(f"serial out of range for custom code: {serial}")
+        return cls(
+            resource_code="",
+            user_index=0,
+            embedded_at=(embedded_at or datetime.now(timezone.utc)).astimezone(timezone.utc),
+            serial=int(serial),
+            version=VERSION_CUSTOM,
+            custom_text=raw.decode("utf-8"),
+        )
+
+    def _custom_bytes(self) -> bytes:
+        raw = encode_custom_text(self.custom_text or "")
+        minute = _minute_of(self.embedded_at)
+        if minute < 0 or minute > MAX_MINUTE:
+            raise TraceFormatError(f"embedded_at out of representable range: {self.embedded_at}")
+        head = bytearray()
+        head.append(VERSION_CUSTOM)
+        head += raw.ljust(CUSTOM_TEXT_LEN, b"\x00")
+        head += minute.to_bytes(4, "big")
+        head += int(self.serial).to_bytes(2, "big")
+        crc = zlib.crc32(bytes(head)) & 0xFFFFFFFF
+        return bytes(head) + crc.to_bytes(4, "big")
+
+    @classmethod
+    def _parse_custom(cls, data: bytes) -> "TraceCode":
+        crc = int.from_bytes(data[CUSTOM_PAYLOAD_LEN : CUSTOM_PAYLOAD_LEN + 4], "big")
+        if zlib.crc32(data[:CUSTOM_PAYLOAD_LEN]) & 0xFFFFFFFF != crc:
+            raise TraceFormatError("crc32 mismatch")
+        raw = data[1 : 1 + CUSTOM_TEXT_LEN].rstrip(b"\x00")
+        if not raw:
+            raise TraceFormatError("empty custom text")
+        try:
+            text = raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise TraceFormatError("custom text is not valid UTF-8") from exc
+        minute = int.from_bytes(data[14:18], "big")
+        serial = int.from_bytes(data[18:20], "big")
+        return cls(
+            resource_code="",
+            user_index=0,
+            embedded_at=_datetime_of(minute),
+            serial=serial,
+            version=VERSION_CUSTOM,
+            custom_text=text,
+        )
+
+    @property
+    def is_custom(self) -> bool:
+        """是否为 v2 自定义文本码。"""
+        return self.version == VERSION_CUSTOM or self.custom_text is not None
+
     # ---- 序列化 ----
     def to_bytes(self) -> bytes:
+        if self.version == VERSION_CUSTOM or self.custom_text is not None:
+            return self._custom_bytes()
         minute = _minute_of(self.embedded_at)
         if minute < 0 or minute > MAX_MINUTE:
             raise TraceFormatError(f"embedded_at out of representable range: {self.embedded_at}")
@@ -122,6 +212,8 @@ class TraceCode:
         if len(data) != TRACE_LEN:
             raise TraceFormatError(f"trace_id must be {TRACE_LEN} bytes, got {len(data)}")
         data = bytes(data)
+        if data[0] == VERSION_CUSTOM:
+            return cls._parse_custom(data)
         if data[0] != VERSION:
             raise TraceFormatError(f"unsupported version byte: {data[0]}")
         crc = int.from_bytes(data[15:19], "big")
@@ -157,7 +249,7 @@ class TraceCode:
         return cls.from_bytes(raw)
 
     def to_dict(self) -> dict:
-        return {
+        payload = {
             "trace_id": self.hex,
             "resource_code": self.resource_code,
             "user_index": self.user_index,
@@ -165,6 +257,10 @@ class TraceCode:
             "serial": self.serial,
             "version": self.version,
         }
+        if self.custom_text is not None:
+            payload["custom_text"] = self.custom_text
+        return payload
 
     def __str__(self) -> str:  # pragma: no cover - 展示用
         return self.hex
+

@@ -1,4 +1,4 @@
-<UserControl x:Class="InvisMark.Desktop.Pages.EmbedPage"
+﻿<UserControl x:Class="InvisMark.Desktop.Pages.EmbedPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -31,6 +31,16 @@
                                  ToolTip="留空自动生成；1–6 位 base36，例如 F13241" />
                     </Grid>
 
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="自定义内容" Style="{StaticResource Body}" VerticalAlignment="Center" />
+                        <TextBox x:Name="CustomTextBox" Grid.Column="1" Style="{StaticResource TextInput}" MaxLength="13"
+                                 Margin="12,0,0,0" VerticalContentAlignment="Center"
+                                 ToolTip="可选；填了就把这段文字嵌进图片（≤13 字节 UTF-8，约 4 个汉字）" />
+                    </Grid>
                     <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                         <Button x:Name="EmbedButton" Content="开始嵌入" Style="{StaticResource PrimaryButton}"
                                 IsEnabled="False" Click="OnEmbedClick" />
@@ -96,3 +106,4 @@
         </StackPanel>
     </ScrollViewer>
 </UserControl>
+

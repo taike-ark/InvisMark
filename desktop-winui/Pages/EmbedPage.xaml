@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="InvisMark.Desktop.Pages.EmbedPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -35,6 +35,15 @@
                                  PlaceholderText="可留空，自动生成（1–6 位 base36，例如 F13241）" />
                     </Grid>
 
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="自定义内容" VerticalAlignment="Center" />
+                        <TextBox x:Name="CustomTextBox" Grid.Column="1" MaxLength="13"
+                                 PlaceholderText="可选：≤13 字节 UTF-8，约 4 个汉字；留空写标准追溯码" />
+                    </Grid>
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <Button x:Name="EmbedButton" Content="开始嵌入" Style="{StaticResource AccentButtonStyle}"
                                 Click="OnEmbedClick" IsEnabled="False" />
@@ -99,3 +108,4 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
+

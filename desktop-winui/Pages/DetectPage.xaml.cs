@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -82,7 +82,8 @@ public sealed partial class DetectPage : Page
                 ResultIcon.Foreground = new SolidColorBrush(Colors.SeaGreen);
                 ResultTitle.Text = "命中 · 可追溯";
                 TraceText.Text = info.TraceId;
-                ResourceText.Text = info.ResourceCode;
+                ResourceLabel.Text = string.IsNullOrEmpty(info.CustomText) ? "资源编码" : "自定义内容";
+                ResourceText.Text = string.IsNullOrEmpty(info.CustomText) ? info.ResourceCode : info.CustomText!;
                 TimeText.Text = info.EmbeddedAt.Replace("T", " ").Replace("+00:00", " UTC");
                 ConfidenceText.Text = $"{info.Confidence * 100:F1}%";
                 StatsText.Text = $"{info.CorrectedBytes} 字节 / {info.ElapsedMs:F0} ms";
@@ -95,6 +96,7 @@ public sealed partial class DetectPage : Page
                 ResultIcon.Foreground = new SolidColorBrush(Colors.OrangeRed);
                 ResultTitle.Text = "未检出有效追溯码";
                 TraceText.Text = "—";
+                ResourceLabel.Text = "资源编码";
                 ResourceText.Text = "—";
                 TimeText.Text = "—";
                 ConfidenceText.Text = "—";
@@ -161,3 +163,4 @@ public sealed partial class DetectPage : Page
         HintText.Text = "trace_id 已复制";
     }
 }
+

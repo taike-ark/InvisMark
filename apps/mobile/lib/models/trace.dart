@@ -43,6 +43,7 @@ class EmbedResult {
     this.embeddedAt,
     this.expiresAt,
     this.imageBytes,
+    this.customText,
   });
 
   final String assetId;
@@ -55,6 +56,9 @@ class EmbedResult {
   /// 服务端返回的成图（PNG 字节），用于结果页展示、保存到相册、分享
   final Uint8List? imageBytes;
 
+  /// v2 自定义嵌入内容（用户自填文本）
+  final String? customText;
+
   factory EmbedResult.fromJson(Map<String, dynamic> json) => EmbedResult(
         assetId: _asString(json['asset_id']) ?? '',
         traceId: _asString(json['trace_id']) ?? '',
@@ -63,6 +67,7 @@ class EmbedResult {
         embeddedAt: _asDateTime(json['embedded_at']),
         expiresAt: _asDateTime(json['expires_at']),
         imageBytes: _decodeBase64(json['image_base64']),
+        customText: _asString(json['custom_text']),
       );
 
   /// 演示数据：未接入原生相册插件 / 无网络时用于走通 UI 流程。
@@ -98,6 +103,7 @@ class TraceResult {
     this.tenantId,
     this.user,
     this.resourceCode,
+    this.customText,
     this.embeddedAt,
     this.confidence,
     this.reportUrl,
@@ -109,6 +115,10 @@ class TraceResult {
   final String? tenantId;
   final TraceUser? user;
   final String? resourceCode;
+
+  /// v2 自定义嵌入内容（用户自填文本）
+  final String? customText;
+
   final DateTime? embeddedAt;
 
   /// 置信度 0..1，≥ 0.9 展示"高置信"（§4.5）
@@ -128,6 +138,7 @@ class TraceResult {
       tenantId: _asString(json['tenant_id']),
       user: userJson == null ? null : TraceUser.fromJson(userJson),
       resourceCode: _asString(json['resource_code']),
+      customText: _asString(json['custom_text']),
       embeddedAt: _asDateTime(json['embedded_at']),
       confidence: json['confidence'] == null ? null : _asDouble(json['confidence']),
       reportUrl: _asString(json['report_url']),

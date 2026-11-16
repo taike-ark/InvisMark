@@ -84,7 +84,7 @@ public partial class EmbedPage : UserControl
             Directory.CreateDirectory(dir);
             _outputPath = Path.Combine(dir, $"{Path.GetFileNameWithoutExtension(_inputPath)}.wm.png");
 
-            var info = await MainWindow.Host.Backend.EmbedAsync(_inputPath, _outputPath, ResourceBox.Text.Trim());
+            var info = await MainWindow.Host.Backend.EmbedAsync(_inputPath, _outputPath, ResourceBox.Text.Trim(), CustomTextBox.Text.Trim());
             _traceId = info.TraceId;
 
             PsnrText.Text = $"{info.Psnr:F2} dB";
@@ -92,7 +92,7 @@ public partial class EmbedPage : UserControl
             TraceText.Text = info.TraceId;
             AfterImage.Source = LoadBitmap(_outputPath);
             ResultCard.Visibility = Visibility.Visible;
-            SavedText.Text = $"已保存：{_outputPath}";
+            SavedText.Text = info.CustomText is { Length: > 0 } ct ? $"自定义内容：{ct} ｜ 已保存：{_outputPath}" : $"已保存：{_outputPath}";
             StatusText.Text = $"完成，用时 {info.ElapsedMs:F0} ms";
         }
         catch (Exception ex)
@@ -134,4 +134,5 @@ public partial class EmbedPage : UserControl
         Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{_outputPath}\"") { UseShellExecute = true });
     }
 }
+
 

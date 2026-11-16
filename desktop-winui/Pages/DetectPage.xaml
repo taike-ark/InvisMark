@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="InvisMark.Desktop.Pages.DetectPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -58,7 +58,7 @@
                         </StackPanel>
 
                         <StackPanel Grid.Row="1" Grid.Column="0" Spacing="2">
-                            <TextBlock Text="资源编码" Style="{StaticResource ImCaption}" />
+                            <TextBlock x:Name="ResourceLabel" Text="资源编码" Style="{StaticResource ImCaption}" />
                             <TextBlock x:Name="ResourceText" Text="—" FontSize="16" />
                         </StackPanel>
                         <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
@@ -86,3 +86,4 @@
         </StackPanel>
     </ScrollViewer>
 </Page>
+

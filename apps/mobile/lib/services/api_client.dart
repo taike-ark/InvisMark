@@ -57,18 +57,20 @@ class ApiClient {
 
   Uri get baseUri => _baseUri;
 
-  /// 单图嵌入：multipart(file, resource_code?, strength?)
+  /// 单图嵌入：multipart(file, resource_code?, strength?, custom_text?)
   Future<EmbedResult> embed({
     required Uint8List bytes,
     required String filename,
     String? resourceCode,
     String? strength,
+    String? customText,
   }) async {
     final Map<String, dynamic> json = await _postMultipart(
       '/v1/embed',
       fields: <String, String?>{
         'resource_code': resourceCode,
         'strength': strength,
+        'custom_text': customText,
       },
       bytes: bytes,
       filename: filename,
@@ -327,3 +329,4 @@ String _mimeTypeOf(String filename) {
 
 /// 去掉会破坏 multipart 头部的字符
 String _sanitizeFilename(String filename) => filename.replaceAll(RegExp(r'[\r\n"\\]'), '_');
+

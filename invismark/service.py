@@ -72,6 +72,7 @@ class Service:
         tenant: str | None = None,
         user: str = "anonymous",
         resource_code: str = "",
+        custom_text: str = "",
         alpha: float | None = None,
         base_long_edge: int | None = None,
         keep_original: bytes | None = None,
@@ -87,10 +88,18 @@ class Service:
                 status=422,
             )
         uid, user_index = self.store.ensure_user(tid, user)
-        code = trace.TraceCode.new(
-            resource_code=resource_code or self._auto_resource_code(),
-            user_index=user_index,
-        )
+        if (custom_text or "").strip():
+            # v2：用户自定义文本，不占用资源码/用户索引
+            try:
+                code = trace.TraceCode.new_custom(custom_text)
+            except trace.TraceFormatError as exc:
+                raise ServiceError(str(exc), code="bad_custom_text", status=422) from exc
+            user_index = 0
+        else:
+            code = trace.TraceCode.new(
+                resource_code=resource_code or self._auto_resource_code(),
+                user_index=user_index,
+            )
         try:
             res = pipeline.embed(
                 rgb,
@@ -121,6 +130,7 @@ class Service:
             "trace_id": code.hex,
             "resource_code": code.resource_code,
             "user_index": user_index,
+            "custom_text": code.custom_text,
             "image_url": f"/v1/assets/{asset_id}",
             "quality": {
                 "psnr": None if res.psnr == float("inf") else round(res.psnr, 2),
@@ -158,6 +168,7 @@ class Service:
             "trace_id": res.trace_id,
             "resource_code": res.trace.resource_code if res.trace else None,
             "user_index": res.trace.user_index if res.trace else None,
+            "custom_text": res.trace.custom_text if res.trace else None,
             "user": {"external_id": info.get("external_id")} if info else None,
             "embedded_at": res.trace.embedded_at.isoformat() if res.trace else None,
             "confidence": round(res.confidence, 4),

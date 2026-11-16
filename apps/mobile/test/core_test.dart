@@ -106,6 +106,21 @@ void main() {
       bytes[5] ^= 1;
       expect(() => TraceCode.fromBytes(bytes), throwsFormatException);
     });
+
+    test('自定义文本 v2 往返', () {
+      final TraceCode code = TraceCode.newCustom(text: '张三-内部', serial: 9);
+      final List<int> bytes = code.toBytes();
+      expect(bytes.length, 24);
+      expect(bytes[0], TraceCode.versionCustom);
+      final TraceCode back = TraceCode.fromBytes(bytes);
+      expect(back.customText, '张三-内部');
+      expect(back.serial, 9);
+      expect(back.isCustom, isTrue);
+    });
+
+    test('自定义文本超长被拒绝', () {
+      expect(() => TraceCode.newCustom(text: '这个文本肯定超过十三个字节'), throwsFormatException);
+    });
   });
 
   group('PNG 编解码', () {

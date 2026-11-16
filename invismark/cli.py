@@ -1,4 +1,4 @@
-# 隐迹 InvisMark · SPDX-License-Identifier: Apache-2.0
+﻿# 隐迹 InvisMark · SPDX-License-Identifier: Apache-2.0
 """命令行入口：``python -m invismark <子命令>``。
 
 子命令：
@@ -98,6 +98,7 @@ def cmd_embed(args) -> int:
             tenant=args.tenant,
             user=args.user,
             resource_code=args.resource or "",
+            custom_text=args.text or "",
         )
     except Exception as exc:  # ServiceError / ImageIOError
         print(f"embed failed: {exc}", file=sys.stderr)
@@ -235,6 +236,7 @@ def build_parser() -> argparse.ArgumentParser:
     e.add_argument("--out", dest="output", required=True)
     e.add_argument("--user", default="anonymous")
     e.add_argument("--resource", default="")
+    e.add_argument("--text", default="", help="自定义嵌入文本（≤13 字节 UTF-8，约 4 个汉字）")
     common(e)
     e.set_defaults(func=cmd_embed)
 
@@ -294,3 +296,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

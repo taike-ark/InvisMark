@@ -21,6 +21,7 @@ class LocalEmbedResult {
     required this.pngBytes,
     required this.traceId,
     required this.resourceCode,
+    this.customText,
     required this.psnr,
     required this.ssim,
     required this.elapsedMs,
@@ -29,6 +30,9 @@ class LocalEmbedResult {
   final Uint8List pngBytes;
   final String traceId;
   final String resourceCode;
+
+  /// v2 自定义内容（非空时 resourceCode 为空）
+  final String? customText;
   final double psnr;
   final double ssim;
   final double elapsedMs;
@@ -200,18 +204,25 @@ class LocalEngine {
   }
 
   /// 本地嵌入：不联网，结果直接落在手机上。
-  static Future<LocalEmbedResult> embed(Uint8List bytes, {String? resourceCode}) async {
+  static Future<LocalEmbedResult> embed(Uint8List bytes, {String? resourceCode, String? customText}) async {
     final ImageData source = await decodeImage(bytes);
     final int seed = await ensureSeed();
     final int serial = await _nextSerial();
-    final String code = (resourceCode == null || resourceCode.trim().isEmpty)
-        ? _randomResourceCode()
-        : resourceCode.trim();
-    final TraceCode trace = TraceCode.newCode(
-      resourceCode: code,
-      userIndex: 1,
-      serial: serial,
-    );
+    final String? text = customText?.trim();
+    final TraceCode trace;
+    if (text != null && text.isNotEmpty) {
+      // v2：用户自定义内容（≤13 字节 UTF-8），不占用资源码/用户索引
+      trace = TraceCode.newCustom(text: text, serial: serial);
+    } else {
+      final String code = (resourceCode == null || resourceCode.trim().isEmpty)
+          ? _randomResourceCode()
+          : resourceCode.trim();
+      trace = TraceCode.newCode(
+        resourceCode: code,
+        userIndex: 1,
+        serial: serial,
+      );
+    }
     final _EmbedPayload payload = _EmbedPayload(
       rgba: source.rgba,
       width: source.width,
@@ -227,6 +238,7 @@ class LocalEngine {
       pngBytes: png,
       traceId: trace.hex,
       resourceCode: trace.resourceCode,
+      customText: trace.customText,
       psnr: reply.psnr,
       ssim: reply.ssim,
       elapsedMs: reply.elapsedMs,
@@ -345,3 +357,5 @@ _ExtractReply _extractInIsolate(_ExtractPayload p) {
     elapsedMs: watch.elapsedMicroseconds / 1000.0,
   );
 }
+
+
